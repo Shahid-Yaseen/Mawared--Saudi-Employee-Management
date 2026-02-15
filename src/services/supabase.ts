@@ -1,9 +1,14 @@
-import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
+if (Platform.OS !== 'web') {
+    require('react-native-url-polyfill/auto');
+}
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
+
+console.log('Supabase check: URL=', supabaseUrl ? 'Set' : 'Missing', 'Key=', supabaseAnonKey ? 'Set' : 'Missing');
 
 if (supabaseUrl === 'https://placeholder.supabase.co') {
     console.warn('⚠️ Supabase not configured. Using placeholder values. Add your credentials to .env file.');

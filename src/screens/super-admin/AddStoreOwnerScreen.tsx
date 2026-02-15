@@ -7,13 +7,15 @@ import {
     Alert,
     ActivityIndicator,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { Card, TextInput, Button, Title, Paragraph } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
 
 export default function AddStoreOwnerScreen({ navigation }: any) {
+    const { theme } = useTheme();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -42,6 +44,7 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
 
         setLoading(true);
         try {
+            console.log('API Request: Creating store owner...', { email, fullName, storeName });
             const result = await adminApi.createStoreOwner({
                 fullName: fullName.trim(),
                 email: email.trim(),
@@ -50,12 +53,21 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                 storeNumber: storeNumber.trim() || undefined,
             });
 
-            const tempPassword = result.tempPassword || result.data?.tempPassword || 'Check email';
+            console.log('API Response:', result);
+
+            const tempPassword = result.tempPassword || result.data?.tempPassword || result.credentials?.password || 'User should check email';
             const emailSent = result.emailSent !== false;
+
+            if (Platform.OS === 'web') {
+                console.log('Success: Navigating back on web');
+                alert(`Store owner has been created successfully.\n\nTemporary Password: ${tempPassword}\n\nEmail notification: ${emailSent ? 'Sent' : 'Not sent'}`);
+                navigation.goBack();
+                return;
+            }
 
             Alert.alert(
                 'Store Owner Created',
-                `Store owner has been created successfully.\n\nTemporary Password: ${tempPassword}\n\nEmail notification: ${emailSent ? 'Sent' : 'Not sent - please share credentials manually'}`,
+                `Store owner has been created successfully.\n\nTemporary Password: ${tempPassword}\n\nEmail notification: ${emailSent ? 'Sent' : 'Not sent'}`,
                 [
                     {
                         text: 'OK',
@@ -71,8 +83,8 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
+        <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -82,9 +94,9 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                 </View>
             </View>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Text style={styles.sectionTitle}>Owner Information</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Owner Information</Text>
 
                     <TextInput
                         label="Full Name *"
@@ -118,9 +130,9 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                 </Card.Content>
             </Card>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Text style={styles.sectionTitle}>Store Information</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Store Information</Text>
 
                     <TextInput
                         label="Store Name *"
@@ -146,7 +158,8 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                 <Button
                     mode="outlined"
                     onPress={() => navigation.goBack()}
-                    style={styles.cancelButton}
+                    style={[styles.cancelButton, { borderColor: theme.colors.outline }]}
+                    labelStyle={{ color: theme.colors.primary }}
                     disabled={loading}
                 >
                     Cancel
@@ -155,7 +168,8 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                     mode="contained"
                     onPress={handleSubmit}
                     style={styles.submitButton}
-                    buttonColor={Colors.primary}
+                    buttonColor={theme.colors.primary}
+                    textColor="white"
                     disabled={loading}
                 >
                     {loading ? (
@@ -174,11 +188,9 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 20,
-        backgroundColor: Colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
     },
@@ -202,12 +214,10 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text,
         marginBottom: 12,
     },
     input: {
         marginBottom: 12,
-        backgroundColor: Colors.white,
     },
     row: {
         flexDirection: 'row',

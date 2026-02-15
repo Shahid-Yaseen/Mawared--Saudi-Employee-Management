@@ -6,11 +6,12 @@ import {
     ScrollView,
     RefreshControl,
 } from 'react-native';
-import { Card, Title, Paragraph, DataTable, Chip, Button } from 'react-native-paper';
+import { Card, Title, DataTable, Chip } from 'react-native-paper';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 export default function PayrollOverviewScreen() {
+    const { theme } = useTheme();
     const [payrollData, setPayrollData] = useState<any[]>([]);
     const [summary, setSummary] = useState({
         totalPayroll: 0,
@@ -59,61 +60,70 @@ export default function PayrollOverviewScreen() {
 
     return (
         <ScrollView
-            style={styles.container}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadPayrollData} />}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={loadPayrollData} tintColor={theme.colors.primary} />
+            }
         >
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Title>Payroll Summary</Title>
+                    <Title style={{ color: theme.colors.text }}>Payroll Summary</Title>
                     <View style={styles.summaryRow}>
                         <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>SAR {summary.totalPayroll.toFixed(2)}</Text>
-                            <Text style={styles.summaryLabel}>Total Payroll</Text>
+                            <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>SAR {summary.totalPayroll.toFixed(1)}</Text>
+                            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Total Payroll</Text>
                         </View>
                         <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>{summary.pendingCount}</Text>
-                            <Text style={styles.summaryLabel}>Pending</Text>
+                            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summary.pendingCount}</Text>
+                            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Pending</Text>
                         </View>
                         <View style={styles.summaryItem}>
-                            <Text style={styles.summaryValue}>{summary.paidCount}</Text>
-                            <Text style={styles.summaryLabel}>Paid</Text>
+                            <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summary.paidCount}</Text>
+                            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Paid</Text>
                         </View>
                     </View>
                 </Card.Content>
             </Card>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Title>Payslips by Store</Title>
+                    <Title style={{ color: theme.colors.text }}>Payslips by Store</Title>
                     <DataTable>
                         <DataTable.Header>
-                            <DataTable.Title>Employee</DataTable.Title>
-                            <DataTable.Title>Store</DataTable.Title>
-                            <DataTable.Title numeric>Net Salary</DataTable.Title>
-                            <DataTable.Title>Status</DataTable.Title>
+                            <DataTable.Title textStyle={{ color: theme.colors.text }}>Employee</DataTable.Title>
+                            <DataTable.Title textStyle={{ color: theme.colors.text }}>Store</DataTable.Title>
+                            <DataTable.Title numeric textStyle={{ color: theme.colors.text }}>Net Salary</DataTable.Title>
+                            <DataTable.Title textStyle={{ color: theme.colors.text }}>Status</DataTable.Title>
                         </DataTable.Header>
 
-                        {payrollData.map((payslip) => (
-                            <DataTable.Row key={payslip.id}>
-                                <DataTable.Cell>{payslip.employees.profiles.full_name}</DataTable.Cell>
-                                <DataTable.Cell>{payslip.employees.stores.store_name}</DataTable.Cell>
-                                <DataTable.Cell numeric>SAR {payslip.net_salary}</DataTable.Cell>
-                                <DataTable.Cell>
-                                    <Chip
-                                        mode="flat"
-                                        style={{
-                                            backgroundColor:
-                                                payslip.status === 'paid' ? Colors.success + '20' : Colors.warning + '20',
-                                        }}
-                                        textStyle={{
-                                            color: payslip.status === 'paid' ? Colors.success : Colors.warning,
-                                        }}
-                                    >
-                                        {payslip.status}
-                                    </Chip>
-                                </DataTable.Cell>
-                            </DataTable.Row>
-                        ))}
+                        {payrollData.length === 0 ? (
+                            <View style={styles.emptyContainer}>
+                                <Text style={{ color: theme.colors.textSecondary }}>No payroll data for this month</Text>
+                            </View>
+                        ) : (
+                            payrollData.map((payslip) => (
+                                <DataTable.Row key={payslip.id}>
+                                    <DataTable.Cell textStyle={{ color: theme.colors.text }}>{payslip.employees.profiles.full_name}</DataTable.Cell>
+                                    <DataTable.Cell textStyle={{ color: theme.colors.text }}>{payslip.employees.stores.store_name}</DataTable.Cell>
+                                    <DataTable.Cell numeric textStyle={{ color: theme.colors.text }}>SAR {payslip.net_salary}</DataTable.Cell>
+                                    <DataTable.Cell>
+                                        <Chip
+                                            mode="flat"
+                                            style={{
+                                                backgroundColor:
+                                                    payslip.status === 'paid' ? theme.colors.success + '20' : theme.colors.warning + '20',
+                                            }}
+                                            textStyle={{
+                                                color: payslip.status === 'paid' ? theme.colors.success : theme.colors.warning,
+                                                fontSize: 10,
+                                            }}
+                                        >
+                                            {payslip.status}
+                                        </Chip>
+                                    </DataTable.Cell>
+                                </DataTable.Row>
+                            ))
+                        )}
                     </DataTable>
                 </Card.Content>
             </Card>
@@ -124,7 +134,6 @@ export default function PayrollOverviewScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     card: {
         margin: 10,
@@ -139,13 +148,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     summaryValue: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: Colors.primary,
     },
     summaryLabel: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginTop: 4,
+    },
+    emptyContainer: {
+        padding: 20,
+        alignItems: 'center',
     },
 });

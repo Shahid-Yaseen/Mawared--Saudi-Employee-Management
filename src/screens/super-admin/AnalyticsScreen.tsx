@@ -10,9 +10,10 @@ import {
 import { Card, Title } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 export default function AnalyticsScreen() {
+    const { theme } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -155,10 +156,10 @@ export default function AnalyticsScreen() {
     };
 
     const roleColors: Record<string, string> = {
-        store_owner: Colors.primary,
-        hr_team: Colors.info,
-        employee: Colors.success,
-        super_admin: Colors.error,
+        store_owner: theme.colors.primary,
+        hr_team: '#3B82F6',
+        employee: '#10B981',
+        super_admin: '#EF4444',
     };
 
     const maxRoleCount = Math.max(...roleDistribution.map(r => r.count), 1);
@@ -167,157 +168,165 @@ export default function AnalyticsScreen() {
 
     return (
         <ScrollView
-            style={styles.container}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[theme.colors.primary]}
+                    tintColor={theme.colors.primary}
+                />
+            }
         >
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
                 <View style={styles.headerContent}>
                     <Title style={styles.headerTitle}>Analytics</Title>
                     <Text style={styles.headerSubtitle}>Platform Insights & Metrics</Text>
                 </View>
                 <View style={styles.headerIcon}>
-                    <Ionicons name="stats-chart" size={36} color={Colors.white} />
+                    <Ionicons name="stats-chart" size={36} color="white" />
                 </View>
             </View>
 
             <View style={styles.summaryRow}>
-                <View style={[styles.summaryCard, { borderLeftColor: Colors.success }]}>
-                    <MaterialCommunityIcons name="cash-multiple" size={28} color={Colors.success} />
-                    <Text style={styles.summaryValue}>${summary.totalRevenue.toLocaleString()}</Text>
-                    <Text style={styles.summaryLabel}>Total Revenue</Text>
+                <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderLeftColor: '#10B981' }]}>
+                    <MaterialCommunityIcons name="cash-multiple" size={28} color="#10B981" />
+                    <Text style={[styles.summaryValue, { color: theme.colors.text }]}>SAR {summary.totalRevenue.toLocaleString()}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Total Revenue</Text>
                 </View>
-                <View style={[styles.summaryCard, { borderLeftColor: Colors.info }]}>
-                    <Ionicons name="business" size={28} color={Colors.info} />
-                    <Text style={styles.summaryValue}>{summary.activeStores}</Text>
-                    <Text style={styles.summaryLabel}>Active Stores</Text>
+                <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderLeftColor: '#3B82F6' }]}>
+                    <Ionicons name="business" size={28} color="#3B82F6" />
+                    <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summary.activeStores}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Active Stores</Text>
                 </View>
-                <View style={[styles.summaryCard, { borderLeftColor: Colors.primary }]}>
-                    <Ionicons name="trending-up" size={28} color={Colors.primary} />
-                    <Text style={styles.summaryValue}>{summary.userGrowth}</Text>
-                    <Text style={styles.summaryLabel}>User Growth (30d)</Text>
+                <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderLeftColor: theme.colors.primary }]}>
+                    <Ionicons name="trending-up" size={28} color={theme.colors.primary} />
+                    <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summary.userGrowth}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>User Growth (30d)</Text>
                 </View>
             </View>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="pie-chart" size={20} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Store Status</Text>
+                <Ionicons name="pie-chart" size={20} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Store Status</Text>
             </View>
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     <View style={styles.barRow}>
-                        <Text style={styles.barLabel}>Active</Text>
-                        <View style={styles.barTrack}>
+                        <Text style={[styles.barLabel, { color: theme.colors.text }]}>Active</Text>
+                        <View style={[styles.barTrack, { backgroundColor: theme.colors.background }]}>
                             <View
                                 style={[
                                     styles.barFill,
                                     {
                                         width: totalStores > 0 ? `${(storeStatus.active / totalStores) * 100}%` : '0%',
-                                        backgroundColor: Colors.success,
+                                        backgroundColor: '#10B981',
                                     },
                                 ]}
                             />
                         </View>
-                        <Text style={styles.barCount}>{storeStatus.active}</Text>
+                        <Text style={[styles.barCount, { color: theme.colors.text }]}>{storeStatus.active}</Text>
                     </View>
                     <View style={styles.barRow}>
-                        <Text style={styles.barLabel}>Inactive</Text>
-                        <View style={styles.barTrack}>
+                        <Text style={[styles.barLabel, { color: theme.colors.text }]}>Inactive</Text>
+                        <View style={[styles.barTrack, { backgroundColor: theme.colors.background }]}>
                             <View
                                 style={[
                                     styles.barFill,
                                     {
                                         width: totalStores > 0 ? `${(storeStatus.inactive / totalStores) * 100}%` : '0%',
-                                        backgroundColor: Colors.error,
+                                        backgroundColor: '#EF4444',
                                     },
                                 ]}
                             />
                         </View>
-                        <Text style={styles.barCount}>{storeStatus.inactive}</Text>
+                        <Text style={[styles.barCount, { color: theme.colors.text }]}>{storeStatus.inactive}</Text>
                     </View>
                 </Card.Content>
             </Card>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="people" size={20} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>User Distribution by Role</Text>
+                <Ionicons name="people" size={20} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Distribution by Role</Text>
             </View>
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     {roleDistribution.map((item, index) => (
                         <View key={index} style={styles.barRow}>
-                            <Text style={styles.barLabel}>{formatRole(item.role)}</Text>
-                            <View style={styles.barTrack}>
+                            <Text style={[styles.barLabel, { color: theme.colors.text }]}>{formatRole(item.role)}</Text>
+                            <View style={[styles.barTrack, { backgroundColor: theme.colors.background }]}>
                                 <View
                                     style={[
                                         styles.barFill,
                                         {
                                             width: `${(item.count / maxRoleCount) * 100}%`,
-                                            backgroundColor: roleColors[item.role] || Colors.textSecondary,
+                                            backgroundColor: roleColors[item.role] || theme.colors.textSecondary,
                                         },
                                     ]}
                                 />
                             </View>
-                            <Text style={styles.barCount}>{item.count}</Text>
+                            <Text style={[styles.barCount, { color: theme.colors.text }]}>{item.count}</Text>
                         </View>
                     ))}
                 </Card.Content>
             </Card>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="bar-chart" size={20} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Monthly Growth</Text>
+                <Ionicons name="bar-chart" size={20} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Monthly Growth</Text>
             </View>
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     {monthlyGrowth.map((item, index) => (
                         <View key={index} style={styles.barRow}>
-                            <Text style={[styles.barLabel, { width: 70 }]}>{item.month}</Text>
-                            <View style={styles.barTrack}>
+                            <Text style={[styles.barLabel, { width: 70, color: theme.colors.text }]}>{item.month}</Text>
+                            <View style={[styles.barTrack, { backgroundColor: theme.colors.background }]}>
                                 <View
                                     style={[
                                         styles.barFill,
                                         {
                                             width: `${(item.count / maxMonthCount) * 100}%`,
-                                            backgroundColor: Colors.primary,
+                                            backgroundColor: theme.colors.primary,
                                         },
                                     ]}
                                 />
                             </View>
-                            <Text style={styles.barCount}>{item.count}</Text>
+                            <Text style={[styles.barCount, { color: theme.colors.text }]}>{item.count}</Text>
                         </View>
                     ))}
                 </Card.Content>
             </Card>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="person-add" size={20} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Recent Registrations</Text>
+                <Ionicons name="person-add" size={20} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Registrations</Text>
             </View>
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     {recentUsers.length === 0 ? (
-                        <Text style={styles.emptyText}>No recent registrations</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No recent registrations</Text>
                     ) : (
                         recentUsers.map((user, index) => (
                             <View
                                 key={user.id || index}
                                 style={[
                                     styles.userItem,
+                                    { borderBottomColor: theme.colors.divider },
                                     index === recentUsers.length - 1 && styles.userItemLast,
                                 ]}
                             >
                                 <View style={styles.userAvatar}>
-                                    <Ionicons name="person-circle" size={36} color={roleColors[user.role] || Colors.textSecondary} />
+                                    <Ionicons name="person-circle" size={36} color={roleColors[user.role] || theme.colors.textSecondary} />
                                 </View>
                                 <View style={styles.userInfo}>
-                                    <Text style={styles.userName}>{user.full_name || 'Unknown'}</Text>
+                                    <Text style={[styles.userName, { color: theme.colors.text }]}>{user.full_name || 'Unknown'}</Text>
                                     <View style={styles.userMeta}>
-                                        <View style={[styles.roleBadge, { backgroundColor: (roleColors[user.role] || Colors.textSecondary) + '20' }]}>
-                                            <Text style={[styles.roleBadgeText, { color: roleColors[user.role] || Colors.textSecondary }]}>
+                                        <View style={[styles.roleBadge, { backgroundColor: (roleColors[user.role] || theme.colors.textSecondary) + '20' }]}>
+                                            <Text style={[styles.roleBadgeText, { color: roleColors[user.role] || theme.colors.textSecondary }]}>
                                                 {formatRole(user.role)}
                                             </Text>
                                         </View>
-                                        <Text style={styles.userDate}>{formatDate(user.created_at)}</Text>
+                                        <Text style={[styles.userDate, { color: theme.colors.textSecondary }]}>{formatDate(user.created_at)}</Text>
                                     </View>
                                 </View>
                             </View>
@@ -334,11 +343,9 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 24,
-        backgroundColor: Colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -347,12 +354,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerTitle: {
-        color: Colors.white,
+        color: 'white',
         fontSize: 26,
         fontWeight: 'bold',
     },
     headerSubtitle: {
-        color: Colors.white,
+        color: 'white',
         opacity: 0.9,
         fontSize: 14,
         marginTop: 2,
@@ -372,7 +379,6 @@ const styles = StyleSheet.create({
     },
     summaryCard: {
         flex: 1,
-        backgroundColor: Colors.white,
         borderRadius: 12,
         padding: 14,
         marginHorizontal: 4,
@@ -387,12 +393,10 @@ const styles = StyleSheet.create({
     summaryValue: {
         fontSize: 22,
         fontWeight: 'bold',
-        color: Colors.text,
         marginTop: 6,
     },
     summaryLabel: {
         fontSize: 11,
-        color: Colors.textSecondary,
         marginTop: 4,
         textAlign: 'center',
     },
@@ -406,7 +410,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 17,
         fontWeight: '700',
-        color: Colors.text,
         marginLeft: 8,
     },
     card: {
@@ -423,13 +426,11 @@ const styles = StyleSheet.create({
     barLabel: {
         width: 90,
         fontSize: 13,
-        color: Colors.text,
         fontWeight: '500',
     },
     barTrack: {
         flex: 1,
         height: 22,
-        backgroundColor: Colors.background,
         borderRadius: 11,
         overflow: 'hidden',
         marginHorizontal: 8,
@@ -443,12 +444,10 @@ const styles = StyleSheet.create({
         width: 36,
         fontSize: 14,
         fontWeight: '700',
-        color: Colors.text,
         textAlign: 'right',
     },
     emptyText: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         paddingVertical: 20,
         fontSize: 14,
     },
@@ -457,7 +456,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     userItemLast: {
         borderBottomWidth: 0,
@@ -471,7 +469,6 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.text,
     },
     userMeta: {
         flexDirection: 'row',
@@ -490,6 +487,5 @@ const styles = StyleSheet.create({
     },
     userDate: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
 });

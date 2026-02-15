@@ -8,10 +8,10 @@ import {
     TouchableOpacity,
     Alert,
 } from 'react-native';
-import { Card, Button, Chip, Avatar, TextInput } from 'react-native-paper';
+import { Card, Button, Chip, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 interface LeaveRequest {
     id: string;
@@ -35,6 +35,7 @@ interface LeaveRequest {
 }
 
 export default function LeaveApprovalsScreen() {
+    const { theme } = useTheme();
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
     const [refreshing, setRefreshing] = useState(false);
@@ -135,16 +136,16 @@ export default function LeaveApprovalsScreen() {
 
     const getLeaveTypeColor = (type: string) => {
         const colors: any = {
-            annual: Colors.primary,
-            sick: Colors.error,
-            emergency: Colors.warning,
-            hajj: Colors.success,
+            annual: theme.colors.primary,
+            sick: theme.colors.error,
+            emergency: theme.colors.warning,
+            hajj: theme.colors.success,
             maternity: '#E91E63',
             paternity: '#9C27B0',
             bereavement: '#607D8B',
             marriage: '#FF9800',
         };
-        return colors[type] || Colors.textSecondary;
+        return colors[type] || theme.colors.textSecondary;
     };
 
     const calculateDays = (startDate: string, endDate: string) => {
@@ -156,18 +157,19 @@ export default function LeaveApprovalsScreen() {
     };
 
     const renderLeaveRequest = ({ item }: { item: LeaveRequest }) => (
-        <Card style={styles.card}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content>
                 <View style={styles.cardHeader}>
                     <Avatar.Text
                         size={40}
                         label={item.employees.profiles.full_name.substring(0, 2).toUpperCase()}
-                        style={{ backgroundColor: Colors.primary }}
+                        style={{ backgroundColor: theme.colors.primary }}
+                        labelStyle={{ color: '#FFFFFF' }}
                     />
                     <View style={styles.headerInfo}>
-                        <Text style={styles.employeeName}>{item.employees.profiles.full_name}</Text>
-                        <Text style={styles.employeeNumber}>{item.employees.employee_number}</Text>
-                        <Text style={styles.storeName}>{item.employees.stores.store_name}</Text>
+                        <Text style={[styles.employeeName, { color: theme.colors.text }]}>{item.employees.profiles.full_name}</Text>
+                        <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>{item.employees.employee_number}</Text>
+                        <Text style={[styles.storeName, { color: theme.colors.primary }]}>{item.employees.stores.store_name}</Text>
                     </View>
                     <Chip
                         mode="flat"
@@ -176,19 +178,19 @@ export default function LeaveApprovalsScreen() {
                             {
                                 backgroundColor:
                                     item.status === 'approved'
-                                        ? Colors.success + '20'
+                                        ? theme.colors.success + '20'
                                         : item.status === 'rejected'
-                                            ? Colors.error + '20'
-                                            : Colors.warning + '20',
+                                            ? theme.colors.error + '20'
+                                            : theme.colors.warning + '20',
                             },
                         ]}
                         textStyle={{
                             color:
                                 item.status === 'approved'
-                                    ? Colors.success
+                                    ? theme.colors.success
                                     : item.status === 'rejected'
-                                        ? Colors.error
-                                        : Colors.warning,
+                                        ? theme.colors.error
+                                        : theme.colors.warning,
                         }}
                     >
                         {item.status}
@@ -203,30 +205,30 @@ export default function LeaveApprovalsScreen() {
                     >
                         {item.leave_type.toUpperCase()}
                     </Chip>
-                    <Text style={styles.leaveDuration}>
+                    <Text style={[styles.leaveDuration, { color: theme.colors.text }]}>
                         {calculateDays(item.start_date, item.end_date)} day(s)
                     </Text>
                 </View>
 
                 <View style={styles.dateRow}>
                     <View style={styles.dateItem}>
-                        <Text style={styles.dateLabel}>From:</Text>
-                        <Text style={styles.dateValue}>
+                        <Text style={[styles.dateLabel, { color: theme.colors.textSecondary }]}>From:</Text>
+                        <Text style={[styles.dateValue, { color: theme.colors.text }]}>
                             {new Date(item.start_date).toLocaleDateString()}
                         </Text>
                     </View>
                     <View style={styles.dateItem}>
-                        <Text style={styles.dateLabel}>To:</Text>
-                        <Text style={styles.dateValue}>
+                        <Text style={[styles.dateLabel, { color: theme.colors.textSecondary }]}>To:</Text>
+                        <Text style={[styles.dateValue, { color: theme.colors.text }]}>
                             {new Date(item.end_date).toLocaleDateString()}
                         </Text>
                     </View>
                 </View>
 
                 {item.reason && (
-                    <View style={styles.reasonContainer}>
-                        <Text style={styles.reasonLabel}>Reason:</Text>
-                        <Text style={styles.reasonText}>{item.reason}</Text>
+                    <View style={[styles.reasonContainer, { backgroundColor: theme.colors.background }]}>
+                        <Text style={[styles.reasonLabel, { color: theme.colors.textSecondary }]}>Reason:</Text>
+                        <Text style={[styles.reasonText, { color: theme.colors.text }]}>{item.reason}</Text>
                     </View>
                 )}
 
@@ -235,8 +237,9 @@ export default function LeaveApprovalsScreen() {
                         <Button
                             mode="contained"
                             onPress={() => handleApprove(item.id)}
-                            style={[styles.actionButton, { backgroundColor: Colors.success }]}
-                            icon="checkmark-circle"
+                            style={[styles.actionButton, { backgroundColor: theme.colors.success }]}
+                            icon="check-circle"
+                            textColor="#FFFFFF"
                         >
                             Approve
                         </Button>
@@ -244,7 +247,7 @@ export default function LeaveApprovalsScreen() {
                             mode="outlined"
                             onPress={() => handleReject(item.id)}
                             style={styles.actionButton}
-                            textColor={Colors.error}
+                            textColor={theme.colors.error}
                             icon="close-circle"
                         >
                             Reject
@@ -256,13 +259,14 @@ export default function LeaveApprovalsScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Filter Chips */}
-            <View style={styles.filterContainer}>
+            <View style={[styles.filterContainer, { backgroundColor: theme.colors.surface }]}>
                 <Chip
                     selected={filter === 'pending'}
                     onPress={() => setFilter('pending')}
                     style={styles.filterChip}
+                    selectedColor={theme.colors.primary}
                 >
                     Pending
                 </Chip>
@@ -270,6 +274,7 @@ export default function LeaveApprovalsScreen() {
                     selected={filter === 'approved'}
                     onPress={() => setFilter('approved')}
                     style={styles.filterChip}
+                    selectedColor={theme.colors.primary}
                 >
                     Approved
                 </Chip>
@@ -277,6 +282,7 @@ export default function LeaveApprovalsScreen() {
                     selected={filter === 'rejected'}
                     onPress={() => setFilter('rejected')}
                     style={styles.filterChip}
+                    selectedColor={theme.colors.primary}
                 >
                     Rejected
                 </Chip>
@@ -284,6 +290,7 @@ export default function LeaveApprovalsScreen() {
                     selected={filter === 'all'}
                     onPress={() => setFilter('all')}
                     style={styles.filterChip}
+                    selectedColor={theme.colors.primary}
                 >
                     All
                 </Chip>
@@ -295,13 +302,13 @@ export default function LeaveApprovalsScreen() {
                 renderItem={renderLeaveRequest}
                 keyExtractor={(item) => item.id}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
                 }
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="calendar-outline" size={64} color={Colors.textSecondary} />
-                        <Text style={styles.emptyText}>No leave requests found</Text>
+                        <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No leave requests found</Text>
                     </View>
                 }
             />
@@ -312,12 +319,10 @@ export default function LeaveApprovalsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     filterContainer: {
         flexDirection: 'row',
         padding: 10,
-        backgroundColor: '#fff',
         elevation: 2,
     },
     filterChip: {
@@ -342,15 +347,12 @@ const styles = StyleSheet.create({
     employeeName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     employeeNumber: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     storeName: {
         fontSize: 12,
-        color: Colors.primary,
     },
     statusChip: {
         height: 28,
@@ -366,7 +368,6 @@ const styles = StyleSheet.create({
     leaveDuration: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.text,
     },
     dateRow: {
         flexDirection: 'row',
@@ -377,28 +378,23 @@ const styles = StyleSheet.create({
     },
     dateLabel: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginBottom: 2,
     },
     dateValue: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.text,
     },
     reasonContainer: {
         marginBottom: 12,
         padding: 10,
-        backgroundColor: Colors.background,
         borderRadius: 8,
     },
     reasonLabel: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginBottom: 4,
     },
     reasonText: {
         fontSize: 14,
-        color: Colors.text,
     },
     actions: {
         flexDirection: 'row',
@@ -415,7 +411,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: Colors.textSecondary,
         marginTop: 10,
     },
 });

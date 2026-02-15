@@ -5,14 +5,16 @@ import {
     StyleSheet,
     ScrollView,
     Alert,
+    Platform,
 } from 'react-native';
 import { Card, TextInput, Button, Title } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { Colors as StaticColors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 export default function ForceChangePasswordScreen({ route }: any) {
-    const { userId } = route.params;
+    const { theme } = useTheme();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +22,7 @@ export default function ForceChangePasswordScreen({ route }: any) {
     const [loading, setLoading] = useState(false);
 
     const handleChangePassword = async () => {
+        console.log('Attempting password change for user...');
         if (newPassword.length < 8) {
             Alert.alert('Validation Error', 'Password must be at least 8 characters long');
             return;
@@ -31,44 +34,60 @@ export default function ForceChangePasswordScreen({ route }: any) {
 
         setLoading(true);
         try {
-            const { error: updateError } = await supabase.auth.updateUser({
+            console.log('Calling supabase.auth.updateUser...');
+            const { data, error: updateError } = await supabase.auth.updateUser({
                 password: newPassword,
+                data: { must_change_password: false }
             });
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error('Update password error:', updateError);
+                throw updateError;
+            }
 
-            const { error: metaError } = await supabase.auth.updateUser({
-                data: { must_change_password: false },
-            });
+            console.log('Password updated successfully:', data);
 
-            if (metaError) throw metaError;
+            if (Platform.OS === 'web') {
+                console.log('Web platform detected, showing alert and waiting for listener...');
+                alert('Password changed successfully! Redirecting to dashboard...');
+                // The App.tsx listener for USER_UPDATED should handle the state change
+                return;
+            }
 
             Alert.alert('Success', 'Password changed successfully');
         } catch (error: any) {
+            console.error('Password change catch block:', error);
             Alert.alert('Error', error.message || 'Failed to change password');
         } finally {
+            console.log('Password change process finished (finally)');
             setLoading(false);
         }
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <ScrollView
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
+            contentContainerStyle={styles.contentContainer}
+        >
             <View style={styles.iconContainer}>
-                <View style={styles.iconCircle}>
-                    <Ionicons name="lock-closed" size={48} color={Colors.warning} />
+                <View style={[styles.iconCircle, { backgroundColor: theme.colors.primary + '20' }]}>
+                    <Ionicons name="lock-closed" size={48} color={theme.colors.primary} />
                 </View>
             </View>
 
-            <Title style={styles.title}>Change Password Required</Title>
+            <Title style={[styles.title, { color: theme.colors.text }]}>Change Password Required</Title>
 
-            <View style={styles.warningBox}>
-                <Ionicons name="warning" size={20} color={Colors.warning} />
-                <Text style={styles.warningText}>
-                    You must change your password before continuing
+            <View style={[styles.warningBox, {
+                backgroundColor: theme.colors.primary + '15',
+                borderLeftColor: theme.colors.primary
+            }]}>
+                <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
+                <Text style={[styles.warningText, { color: theme.colors.text }]}>
+                    For your security, you must set a new password before you can access your account.
                 </Text>
             </View>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     <TextInput
                         label="New Password"
@@ -77,10 +96,14 @@ export default function ForceChangePasswordScreen({ route }: any) {
                         mode="outlined"
                         style={styles.input}
                         secureTextEntry={!showPassword}
-                        left={<TextInput.Icon icon="lock" />}
+                        outlineColor={theme.colors.divider}
+                        activeOutlineColor={theme.colors.primary}
+                        textColor={theme.colors.text}
+                        left={<TextInput.Icon icon="lock" color={theme.colors.textSecondary} />}
                         right={
                             <TextInput.Icon
                                 icon={showPassword ? 'eye-off' : 'eye'}
+                                color={theme.colors.textSecondary}
                                 onPress={() => setShowPassword(!showPassword)}
                             />
                         }
@@ -93,26 +116,32 @@ export default function ForceChangePasswordScreen({ route }: any) {
                         mode="outlined"
                         style={styles.input}
                         secureTextEntry={!showConfirmPassword}
-                        left={<TextInput.Icon icon="lock-check" />}
+                        outlineColor={theme.colors.divider}
+                        activeOutlineColor={theme.colors.primary}
+                        textColor={theme.colors.text}
+                        left={<TextInput.Icon icon="lock-check" color={theme.colors.textSecondary} />}
                         right={
                             <TextInput.Icon
                                 icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                                color={theme.colors.textSecondary}
                                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                             />
                         }
                     />
 
-                    <Text style={styles.hint}>Password must be at least 8 characters long</Text>
+                    <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+                        Password must be at least 8 characters long
+                    </Text>
 
                     <Button
                         mode="contained"
                         onPress={handleChangePassword}
                         style={styles.submitButton}
-                        buttonColor={Colors.primary}
+                        buttonColor={theme.colors.primary}
                         loading={loading}
                         disabled={loading}
                     >
-                        Change Password
+                        Update Password & Login
                     </Button>
                 </Card.Content>
             </Card>
@@ -123,12 +152,14 @@ export default function ForceChangePasswordScreen({ route }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     contentContainer: {
         padding: 20,
         justifyContent: 'center',
         flexGrow: 1,
+        maxWidth: 600,
+        alignSelf: 'center',
+        width: '100%',
     },
     iconContainer: {
         alignItems: 'center',
@@ -138,47 +169,45 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: Colors.warning + '20',
         justifyContent: 'center',
         alignItems: 'center',
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: Colors.text,
         textAlign: 'center',
         marginBottom: 16,
     },
     warningBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.warning + '15',
         borderRadius: 8,
-        padding: 12,
-        marginBottom: 20,
+        padding: 16,
+        marginBottom: 24,
         borderLeftWidth: 4,
-        borderLeftColor: Colors.warning,
     },
     warningText: {
         fontSize: 14,
-        color: Colors.text,
-        marginLeft: 10,
+        marginLeft: 12,
         flex: 1,
+        lineHeight: 20,
     },
     card: {
-        elevation: 2,
+        borderRadius: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
     input: {
-        marginBottom: 12,
-        backgroundColor: Colors.white,
+        marginBottom: 16,
     },
     hint: {
         fontSize: 12,
-        color: Colors.textSecondary,
-        marginBottom: 20,
+        marginBottom: 24,
     },
     submitButton: {
-        marginTop: 8,
-        paddingVertical: 4,
+        borderRadius: 8,
     },
 });

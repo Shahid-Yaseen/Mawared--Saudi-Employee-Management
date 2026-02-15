@@ -1,5 +1,13 @@
 import React from 'react';
-import { useWindowDimensions } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    useWindowDimensions,
+    TouchableOpacity,
+    Platform,
+    Alert,
+} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,6 +18,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ForceChangePasswordScreen from '../screens/auth/ForceChangePasswordScreen';
+import { supabase } from '../services/supabase';
 
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
 import AttendanceScreen from '../screens/employee/AttendanceScreen';
@@ -24,6 +33,8 @@ import ApprovalsScreen from '../screens/store-owner/ApprovalsScreen';
 import AddEmployeeScreen from '../screens/store-owner/AddEmployeeScreen';
 import SettingsScreen from '../screens/store-owner/SettingsScreen';
 import PrivacyScreen from '../screens/store-owner/PrivacyScreen';
+import EditEmployeeScreen from '../screens/store-owner/EditEmployeeScreen';
+import EmployeeDetailsScreen from '../screens/store-owner/EmployeeDetailsScreen';
 
 import HRDashboardScreen from '../screens/hr-team/HRDashboardScreen';
 import EmployeeDirectoryScreen from '../screens/hr-team/EmployeeDirectoryScreen';
@@ -39,6 +50,8 @@ import SystemSettingsScreen from '../screens/super-admin/SystemSettingsScreen';
 import AnalyticsScreen from '../screens/super-admin/AnalyticsScreen';
 import AddStoreOwnerScreen from '../screens/super-admin/AddStoreOwnerScreen';
 import SubscriptionPlansScreen from '../screens/super-admin/SubscriptionPlansScreen';
+import StoreDetailsScreen from '../screens/super-admin/StoreDetailsScreen';
+import EditStoreScreen from '../screens/super-admin/EditStoreScreen';
 
 import { AuthStackParamList, EmployeeTabParamList, StoreOwnerTabParamList } from '../types';
 import { useTheme } from '../store/ThemeContext';
@@ -313,6 +326,16 @@ export function StoreOwnerNavigator() {
                 component={withSidebarLayout(AddEmployeeScreen, 'store_owner', 'Employees')}
                 options={{ title: 'Add Employee' }}
             />
+            <StoreOwnerStack.Screen
+                name="EditEmployee"
+                component={withSidebarLayout(EditEmployeeScreen, 'store_owner', 'Employees')}
+                options={{ title: 'Edit Employee' }}
+            />
+            <StoreOwnerStack.Screen
+                name="EmployeeDetails"
+                component={withSidebarLayout(EmployeeDetailsScreen, 'store_owner', 'Employees')}
+                options={{ title: 'Employee Details' }}
+            />
         </StoreOwnerStack.Navigator>
     );
 }
@@ -418,7 +441,7 @@ export function HRNavigator() {
 }
 
 function SuperAdminTabs() {
-    const { theme } = useTheme();
+    const { theme, isDark, setMode } = useTheme();
     const { width } = useWindowDimensions();
     const isLargeScreen = width >= 768;
 
@@ -445,6 +468,35 @@ function SuperAdminTabs() {
                     fontWeight: '600',
                 },
                 headerShown: !isLargeScreen,
+                headerRight: () => !isLargeScreen && (
+                    <View style={{ flexDirection: 'row', marginRight: 10 }}>
+                        <TouchableOpacity
+                            onPress={() => setMode(isDark ? 'light' : 'dark')}
+                            style={{ padding: 8 }}
+                        >
+                            <MaterialCommunityIcons
+                                name={isDark ? "white-balance-sunny" : "moon-waning-crescent"}
+                                size={24}
+                                color="white"
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={async () => {
+                                if (Platform.OS === 'web') {
+                                    if (window.confirm('Are you sure you want to logout?')) await supabase.auth.signOut();
+                                } else {
+                                    Alert.alert('Logout', 'Are you sure you want to logout?', [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        { text: 'Logout', style: 'destructive', onPress: () => supabase.auth.signOut() }
+                                    ]);
+                                }
+                            }}
+                            style={{ padding: 8 }}
+                        >
+                            <MaterialCommunityIcons name="logout" size={24} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                )
             }}
         >
             <SuperAdminTab.Screen
@@ -538,6 +590,16 @@ export function SuperAdminNavigator() {
                 name="Subscriptions"
                 component={withSidebarLayout(SubscriptionPlansScreen, 'super_admin', 'SystemSettings')}
                 options={{ title: 'Subscription Plans' }}
+            />
+            <SuperAdminStack.Screen
+                name="StoreDetails"
+                component={withSidebarLayout(StoreDetailsScreen, 'super_admin', 'StoreManagement')}
+                options={{ title: 'Store Details' }}
+            />
+            <SuperAdminStack.Screen
+                name="EditStore"
+                component={withSidebarLayout(EditStoreScreen, 'super_admin', 'StoreManagement')}
+                options={{ title: 'Edit Store' }}
             />
         </SuperAdminStack.Navigator>
     );

@@ -1,6 +1,10 @@
 import { supabase } from './supabase';
 
-const API_BASE = '';
+// In development, the API server runs on port 5001 (5000 is used by macOS Control Center)
+// When deployed on Replit, the external port is mapped to port 80/443
+const API_BASE = (process.env.EXPO_PUBLIC_ENV === 'production')
+  ? ''
+  : 'http://localhost:5001';
 
 async function getAuthToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -9,8 +13,9 @@ async function getAuthToken(): Promise<string> {
 
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = await getAuthToken();
-  
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const url = `${API_BASE}${endpoint}`;
+
+  const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -18,6 +23,13 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
       ...options.headers,
     },
   });
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error('Non-JSON response received:', text.substring(0, 200));
+    throw new Error(`Server returned non-JSON response (${response.status}). Expected JSON but got ${contentType || 'text/plain'}. Please ensure the backend server is running on port 5001.`);
+  }
 
   const data = await response.json();
 
@@ -107,6 +119,79 @@ export const adminApi = {
     apiCall('/api/admin/unassign-hr-from-store', {
       method: 'DELETE',
       body: JSON.stringify({ hrMemberId, storeId }),
+    }),
+
+  getStores: () => apiCall('/api/admin/stores'),
+
+  getStoreDetails: (id: string) => apiCall(`/api/admin/stores/${id}`),
+
+  toggleStoreStatus: (storeId: string, status: string) =>
+    apiCall('/api/admin/toggle-store-status', {
+      method: 'POST',
+      body: JSON.stringify({ storeId, status }),
+    }),
+
+  updateStore: (params: {
+    storeId: string;
+    storeName?: string;
+    storeNumber?: string;
+    phone?: string;
+    status?: string;
+  }) => apiCall('/api/admin/update-store', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
+
+  getStats: () => apiCall('/api/admin/stats'),
+
+  getRecentActivity: () => apiCall('/api/admin/recent-activity'),
+
+  createEmployee: (params: {
+    email: string;
+    password?: string;
+    fullName: string;
+    phone?: string;
+    employeeNumber: string;
+    department?: string;
+    position?: string;
+    salary?: string;
+    hireDate?: string;
+    role?: string;
+    storeId: string;
+  }) => apiCall('/api/store/create-employee', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
+
+  getEmployees: (storeId?: string) =>
+    apiCall(`/api/store/employees${storeId ? `?storeId=${storeId}` : ''}`),
+
+  getEmployeeDetails: (id: string) =>
+    apiCall(`/api/store/employees/${id}`),
+
+  updateEmployee: (params: {
+    employeeId: string;
+    fullName?: string;
+    phone?: string;
+    department?: string;
+    position?: string;
+    salary?: string;
+    hireDate?: string;
+  }) => apiCall('/api/store/update-employee', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
+
+  toggleEmployeeStatus: (employeeId: string, status: string) =>
+    apiCall('/api/store/toggle-employee-status', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, status }),
+    }),
+
+  resetEmployeePassword: (employeeId: string) =>
+    apiCall('/api/store/reset-employee-password', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId }),
     }),
 
   checkHealth: () => apiCall('/api/health'),

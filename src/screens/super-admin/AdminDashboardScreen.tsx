@@ -11,9 +11,11 @@ import {
 import { Card, Title, Paragraph } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
+import { adminApi } from '../../services/adminApi';
 
 export default function AdminDashboardScreen({ navigation }: any) {
+    const { theme } = useTheme();
     const [stats, setStats] = useState({
         totalStores: 0,
         activeStores: 0,
@@ -26,9 +28,14 @@ export default function AdminDashboardScreen({ navigation }: any) {
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { useFocusEffect } = require('@react-navigation/native');
+
+    useFocusEffect(
+        useCallback(() => {
+            console.log('AdminDashboard focused, loading data...');
+            loadData();
+        }, [])
+    );
 
     const loadData = async () => {
         try {
@@ -43,33 +50,26 @@ export default function AdminDashboardScreen({ navigation }: any) {
     };
 
     const loadStats = async () => {
-        const [stores, activeStores, users, employees, pendingRequests] = await Promise.all([
-            supabase.from('stores').select('*', { count: 'exact', head: true }),
-            supabase.from('stores').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-            supabase.from('profiles').select('*', { count: 'exact', head: true }),
-            supabase.from('employees').select('*', { count: 'exact', head: true }),
-            supabase.from('leave_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        ]);
-
-        setStats({
-            totalStores: stores.count || 0,
-            activeStores: activeStores.count || 0,
-            totalUsers: users.count || 0,
-            totalEmployees: employees.count || 0,
-            activeSubscriptions: activeStores.count || 0,
-            pendingRequests: pendingRequests.count || 0,
-        });
+        try {
+            console.log('Loading dashboard stats via admin API...');
+            const result = await adminApi.getStats();
+            if (result.success && result.stats) {
+                setStats(result.stats);
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            // Fallback empty stats already set
+        }
     };
 
     const loadRecentActivity = async () => {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('id, full_name, role, created_at')
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (!error && data) {
-            setRecentActivity(data);
+        try {
+            const result = await adminApi.getRecentActivity();
+            if (result.success && result.activity) {
+                setRecentActivity(result.activity);
+            }
+        } catch (error) {
+            console.error('Error loading activity:', error);
         }
     };
 
@@ -103,36 +103,36 @@ export default function AdminDashboardScreen({ navigation }: any) {
     };
 
     const statCards = [
-        { title: 'Total Stores', value: stats.totalStores, icon: 'business', color: Colors.primary },
-        { title: 'Active Stores', value: stats.activeStores, icon: 'checkmark-circle', color: Colors.success },
-        { title: 'Total Users', value: stats.totalUsers, icon: 'people', color: Colors.info },
-        { title: 'Total Employees', value: stats.totalEmployees, icon: 'person', color: Colors.warning },
-        { title: 'Active Subscriptions', value: stats.activeSubscriptions, icon: 'card', color: '#8B5CF6' },
-        { title: 'Pending Requests', value: stats.pendingRequests, icon: 'time', color: Colors.error },
+        { title: 'Total Stores', value: stats.totalStores, icon: 'business' as const, color: theme.colors.primary },
+        { title: 'Active Stores', value: stats.activeStores, icon: 'checkmark-circle' as const, color: '#10B981' },
+        { title: 'Total Users', value: stats.totalUsers, icon: 'people' as const, color: '#3B82F6' },
+        { title: 'Total Employees', value: stats.totalEmployees, icon: 'person' as const, color: '#F59E0B' },
+        { title: 'Active Subscriptions', value: stats.activeSubscriptions, icon: 'card' as const, color: '#8B5CF6' },
+        { title: 'Pending Requests', value: stats.pendingRequests, icon: 'time' as const, color: '#EF4444' },
     ];
 
     const quickActions = [
-        { title: 'Add Store Owner', icon: 'person-add', color: Colors.primary, route: 'AddStoreOwner' },
-        { title: 'Manage Stores', icon: 'business', color: Colors.success, route: 'StoreManagement' },
-        { title: 'Manage Users', icon: 'people', color: Colors.info, route: 'UserManagement' },
-        { title: 'Subscription Plans', icon: 'card', color: '#8B5CF6', route: 'Subscriptions' },
-        { title: 'System Settings', icon: 'settings', color: Colors.warning, route: 'SystemSettings' },
-        { title: 'Analytics', icon: 'stats-chart', color: Colors.error, route: 'Analytics' },
+        { title: 'Add Store Owner', icon: 'person-add' as const, color: theme.colors.primary, route: 'AddStoreOwner' },
+        { title: 'Manage Stores', icon: 'business' as const, color: '#10B981', route: 'StoreManagement' },
+        { title: 'Manage Users', icon: 'people' as const, color: '#3B82F6', route: 'UserManagement' },
+        { title: 'Subscription Plans', icon: 'card' as const, color: '#8B5CF6', route: 'Subscriptions' },
+        { title: 'System Settings', icon: 'settings' as const, color: '#F59E0B', route: 'SystemSettings' },
+        { title: 'Analytics', icon: 'stats-chart' as const, color: '#EF4444', route: 'Analytics' },
     ];
 
     const StatCard = ({ title, value, icon, color }: any) => (
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
             <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
                 <Ionicons name={icon} size={28} color={color} />
             </View>
-            <Text style={styles.statValue}>{value}</Text>
-            <Text style={styles.statTitle}>{title}</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+            <Text style={[styles.statTitle, { color: theme.colors.textSecondary }]}>{title}</Text>
         </View>
     );
 
     return (
         <ScrollView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
             <View style={styles.header}>
@@ -141,7 +141,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
                     <Paragraph style={styles.headerSubtitle}>Platform Overview & Management</Paragraph>
                 </View>
                 <View style={styles.headerIcon}>
-                    <MaterialCommunityIcons name="shield-crown" size={40} color={Colors.white} />
+                    <MaterialCommunityIcons name="shield-crown" size={40} color="white" />
                 </View>
             </View>
 
@@ -152,54 +152,55 @@ export default function AdminDashboardScreen({ navigation }: any) {
             </View>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="flash" size={22} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <Ionicons name="flash" size={22} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
             </View>
             <View style={styles.actionsGrid}>
                 {quickActions.map((action, index) => (
                     <TouchableOpacity
                         key={index}
-                        style={styles.actionCard}
+                        style={[styles.actionCard, { backgroundColor: theme.colors.surface }]}
                         onPress={() => navigation.navigate(action.route)}
                     >
                         <View style={[styles.actionIconContainer, { backgroundColor: action.color + '15' }]}>
                             <Ionicons name={action.icon as any} size={26} color={action.color} />
                         </View>
-                        <Text style={styles.actionTitle}>{action.title}</Text>
-                        <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+                        <Text style={[styles.actionTitle, { color: theme.colors.text }]}>{action.title}</Text>
+                        <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
                     </TouchableOpacity>
                 ))}
             </View>
 
             <View style={styles.sectionHeader}>
-                <Ionicons name="time" size={22} color={Colors.primary} />
-                <Text style={styles.sectionTitle}>Recent Activity</Text>
+                <Ionicons name="time" size={22} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Activity</Text>
             </View>
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     {recentActivity.length === 0 ? (
-                        <Text style={styles.emptyText}>No recent activity</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No recent activity</Text>
                     ) : (
                         recentActivity.map((item, index) => (
                             <View
                                 key={item.id || index}
                                 style={[
                                     styles.activityItem,
+                                    { borderBottomColor: theme.colors.divider },
                                     index === recentActivity.length - 1 && styles.activityItemLast,
                                 ]}
                             >
                                 <View style={styles.activityAvatar}>
-                                    <Ionicons name="person-circle" size={40} color={Colors.primary} />
+                                    <Ionicons name="person-circle" size={40} color={theme.colors.primary} />
                                 </View>
                                 <View style={styles.activityContent}>
-                                    <Text style={styles.activityName}>
+                                    <Text style={[styles.activityName, { color: theme.colors.text }]}>
                                         {item.full_name || 'Unknown User'}
                                     </Text>
-                                    <Text style={styles.activityRole}>
+                                    <Text style={[styles.activityRole, { color: theme.colors.textSecondary }]}>
                                         {formatRole(item.role)}
                                     </Text>
                                 </View>
-                                <Text style={styles.activityTime}>
+                                <Text style={[styles.activityTime, { color: theme.colors.textSecondary }]}>
                                     Joined {getTimeAgo(item.created_at)}
                                 </Text>
                             </View>
@@ -216,11 +217,10 @@ export default function AdminDashboardScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 24,
-        backgroundColor: Colors.primary,
+        backgroundColor: '#D4AF37',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -237,12 +237,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        color: Colors.white,
+        color: 'white',
         fontSize: 26,
         fontWeight: 'bold',
     },
     headerSubtitle: {
-        color: Colors.white,
+        color: 'white',
         opacity: 0.9,
         fontSize: 14,
         marginTop: 2,
@@ -255,7 +255,6 @@ const styles = StyleSheet.create({
     },
     statCard: {
         width: '47%',
-        backgroundColor: Colors.white,
         borderRadius: 14,
         padding: 16,
         margin: '1.5%',
@@ -277,11 +276,9 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     statTitle: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginTop: 4,
         textAlign: 'center',
     },
@@ -295,7 +292,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: Colors.text,
         marginLeft: 8,
     },
     actionsGrid: {
@@ -305,7 +301,6 @@ const styles = StyleSheet.create({
     },
     actionCard: {
         width: '47%',
-        backgroundColor: Colors.white,
         borderRadius: 14,
         padding: 16,
         margin: '1.5%',
@@ -327,7 +322,6 @@ const styles = StyleSheet.create({
     actionTitle: {
         fontSize: 13,
         fontWeight: '600',
-        color: Colors.text,
         textAlign: 'center',
         marginBottom: 6,
     },
@@ -339,7 +333,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         paddingVertical: 20,
         fontSize: 14,
     },
@@ -348,7 +341,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     activityItemLast: {
         borderBottomWidth: 0,
@@ -362,15 +354,12 @@ const styles = StyleSheet.create({
     activityName: {
         fontSize: 15,
         fontWeight: '600',
-        color: Colors.text,
     },
     activityRole: {
         fontSize: 13,
-        color: Colors.textSecondary,
         marginTop: 2,
     },
     activityTime: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
 });

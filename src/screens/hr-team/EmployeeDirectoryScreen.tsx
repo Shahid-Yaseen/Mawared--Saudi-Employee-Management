@@ -4,14 +4,13 @@ import {
     Text,
     StyleSheet,
     FlatList,
-    TextInput,
     TouchableOpacity,
     RefreshControl,
 } from 'react-native';
-import { Card, Chip, Avatar, Button, Searchbar } from 'react-native-paper';
+import { Card, Chip, Avatar, Searchbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 interface Employee {
     id: string;
@@ -32,6 +31,7 @@ interface Employee {
 }
 
 export default function EmployeeDirectoryScreen({ navigation }: any) {
+    const { theme } = useTheme();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -126,15 +126,15 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'active':
-                return Colors.success;
+                return theme.colors.success;
             case 'inactive':
-                return Colors.textSecondary;
+                return theme.colors.textSecondary;
             case 'on_leave':
-                return Colors.warning;
+                return theme.colors.warning;
             case 'suspended':
-                return Colors.error;
+                return theme.colors.error;
             default:
-                return Colors.textSecondary;
+                return theme.colors.textSecondary;
         }
     };
 
@@ -142,18 +142,19 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
         <TouchableOpacity
             onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
         >
-            <Card style={styles.employeeCard}>
+            <Card style={[styles.employeeCard, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
                     <View style={styles.employeeHeader}>
                         <Avatar.Text
                             size={50}
                             label={item.profiles.full_name.substring(0, 2).toUpperCase()}
-                            style={{ backgroundColor: Colors.primary }}
+                            style={{ backgroundColor: theme.colors.primary }}
+                            labelStyle={{ color: '#FFFFFF' }}
                         />
                         <View style={styles.employeeInfo}>
-                            <Text style={styles.employeeName}>{item.profiles.full_name}</Text>
-                            <Text style={styles.employeeNumber}>{item.employee_number}</Text>
-                            <Text style={styles.employeeStore}>{item.stores.store_name}</Text>
+                            <Text style={[styles.employeeName, { color: theme.colors.text }]}>{item.profiles.full_name}</Text>
+                            <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>{item.employee_number}</Text>
+                            <Text style={[styles.employeeStore, { color: theme.colors.primary }]}>{item.stores.store_name}</Text>
                         </View>
                         <Chip
                             mode="flat"
@@ -165,20 +166,20 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
                     </View>
                     <View style={styles.employeeDetails}>
                         <View style={styles.detailRow}>
-                            <Ionicons name="briefcase-outline" size={16} color={Colors.textSecondary} />
-                            <Text style={styles.detailText}>{item.position || 'N/A'}</Text>
+                            <Ionicons name="briefcase-outline" size={16} color={theme.colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>{item.position || 'N/A'}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                            <Ionicons name="business-outline" size={16} color={Colors.textSecondary} />
-                            <Text style={styles.detailText}>{item.department || 'N/A'}</Text>
+                            <Ionicons name="business-outline" size={16} color={theme.colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>{item.department || 'N/A'}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                            <Ionicons name="mail-outline" size={16} color={Colors.textSecondary} />
-                            <Text style={styles.detailText}>{item.profiles.email}</Text>
+                            <Ionicons name="mail-outline" size={16} color={theme.colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>{item.profiles.email}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                            <Ionicons name="call-outline" size={16} color={Colors.textSecondary} />
-                            <Text style={styles.detailText}>{item.profiles.phone || 'N/A'}</Text>
+                            <Ionicons name="call-outline" size={16} color={theme.colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>{item.profiles.phone || 'N/A'}</Text>
                         </View>
                     </View>
                 </Card.Content>
@@ -187,18 +188,21 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Search Bar */}
             <Searchbar
                 placeholder="Search employees..."
                 onChangeText={setSearchQuery}
                 value={searchQuery}
-                style={styles.searchBar}
+                style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
+                inputStyle={{ color: theme.colors.text }}
+                iconColor={theme.colors.textSecondary}
+                placeholderTextColor={theme.colors.textSecondary}
             />
 
             {/* Filters */}
             <View style={styles.filtersContainer}>
-                <Text style={styles.filterLabel}>Filter by Store:</Text>
+                <Text style={[styles.filterLabel, { color: theme.colors.text }]}>Filter by Store:</Text>
                 <FlatList
                     horizontal
                     data={stores}
@@ -208,6 +212,7 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
                             selected={selectedStore === item.id}
                             onPress={() => setSelectedStore(selectedStore === item.id ? null : item.id)}
                             style={styles.filterChip}
+                            selectedColor={theme.colors.primary}
                         >
                             {item.store_name}
                         </Chip>
@@ -217,7 +222,7 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
             </View>
 
             <View style={styles.filtersContainer}>
-                <Text style={styles.filterLabel}>Filter by Department:</Text>
+                <Text style={[styles.filterLabel, { color: theme.colors.text }]}>Filter by Department:</Text>
                 <FlatList
                     horizontal
                     data={departments}
@@ -227,6 +232,7 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
                             selected={selectedDepartment === item}
                             onPress={() => setSelectedDepartment(selectedDepartment === item ? null : item)}
                             style={styles.filterChip}
+                            selectedColor={theme.colors.primary}
                         >
                             {item}
                         </Chip>
@@ -236,7 +242,7 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
             </View>
 
             {/* Results Count */}
-            <Text style={styles.resultsCount}>
+            <Text style={[styles.resultsCount, { color: theme.colors.textSecondary }]}>
                 {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''} found
             </Text>
 
@@ -246,13 +252,13 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
                 renderItem={renderEmployee}
                 keyExtractor={(item) => item.id}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
                 }
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="people-outline" size={64} color={Colors.textSecondary} />
-                        <Text style={styles.emptyText}>No employees found</Text>
+                        <Ionicons name="people-outline" size={64} color={theme.colors.textSecondary} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No employees found</Text>
                     </View>
                 }
             />
@@ -263,7 +269,6 @@ export default function EmployeeDirectoryScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     searchBar: {
         margin: 10,
@@ -276,7 +281,6 @@ const styles = StyleSheet.create({
     filterLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.text,
         marginBottom: 5,
     },
     filterChip: {
@@ -286,7 +290,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 5,
         fontSize: 14,
-        color: Colors.textSecondary,
     },
     listContent: {
         padding: 10,
@@ -307,15 +310,12 @@ const styles = StyleSheet.create({
     employeeName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     employeeNumber: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     employeeStore: {
         fontSize: 12,
-        color: Colors.primary,
         marginTop: 2,
     },
     statusChip: {
@@ -331,7 +331,6 @@ const styles = StyleSheet.create({
     },
     detailText: {
         fontSize: 13,
-        color: Colors.textSecondary,
         marginLeft: 8,
     },
     emptyContainer: {
@@ -341,7 +340,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: Colors.textSecondary,
         marginTop: 10,
     },
 });

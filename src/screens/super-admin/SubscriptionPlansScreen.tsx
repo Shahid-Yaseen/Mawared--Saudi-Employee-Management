@@ -13,10 +13,11 @@ import {
 import { Card, Button, Chip, FAB, TextInput, Title, Paragraph } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
 
 export default function SubscriptionPlansScreen({ navigation }: any) {
+    const { theme } = useTheme();
     const [plans, setPlans] = useState<any[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -144,13 +145,13 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
     };
 
     const renderPlan = ({ item }: any) => (
-        <Card style={styles.card}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <Card.Content>
                 <View style={styles.cardHeader}>
                     <View style={styles.planInfo}>
-                        <Text style={styles.planName}>{item.name}</Text>
+                        <Text style={[styles.planName, { color: theme.colors.text }]}>{item.name}</Text>
                         {item.name_ar ? (
-                            <Text style={styles.planNameAr}>{item.name_ar}</Text>
+                            <Text style={[styles.planNameAr, { color: theme.colors.textSecondary }]}>{item.name_ar}</Text>
                         ) : null}
                     </View>
                     <Chip
@@ -159,49 +160,49 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                             styles.statusChip,
                             {
                                 backgroundColor:
-                                    item.is_active !== false ? Colors.success + '20' : Colors.error + '20',
+                                    item.is_active !== false ? '#10B98120' : '#EF444420',
                             },
                         ]}
                         textStyle={{
-                            color: item.is_active !== false ? Colors.success : Colors.error,
+                            color: item.is_active !== false ? '#10B981' : '#EF4444',
                         }}
                     >
                         {item.is_active !== false ? 'Active' : 'Inactive'}
                     </Chip>
                 </View>
 
-                <View style={styles.priceContainer}>
+                <View style={[styles.priceContainer, { backgroundColor: theme.colors.background }]}>
                     <View style={styles.priceItem}>
-                        <Text style={styles.priceLabel}>Monthly</Text>
-                        <Text style={styles.priceValue}>{item.price_monthly} SAR</Text>
+                        <Text style={[styles.priceLabel, { color: theme.colors.textSecondary }]}>Monthly</Text>
+                        <Text style={[styles.priceValue, { color: theme.colors.primary }]}>{item.price_monthly} SAR</Text>
                     </View>
-                    <View style={styles.priceDivider} />
+                    <View style={[styles.priceDivider, { backgroundColor: theme.colors.divider }]} />
                     <View style={styles.priceItem}>
-                        <Text style={styles.priceLabel}>Yearly</Text>
-                        <Text style={styles.priceValue}>{item.price_yearly} SAR</Text>
+                        <Text style={[styles.priceLabel, { color: theme.colors.textSecondary }]}>Yearly</Text>
+                        <Text style={[styles.priceValue, { color: theme.colors.primary }]}>{item.price_yearly} SAR</Text>
                     </View>
                 </View>
 
                 <View style={styles.detailRow}>
-                    <Ionicons name="people-outline" size={16} color={Colors.textSecondary} />
-                    <Text style={styles.detailText}>Max Employees: {item.max_employees}</Text>
+                    <Ionicons name="people-outline" size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>Max Employees: {item.max_employees}</Text>
                 </View>
 
                 {item.hr_consultation_hours ? (
                     <View style={styles.detailRow}>
-                        <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
-                        <Text style={styles.detailText}>HR Consultation: {item.hr_consultation_hours} hrs</Text>
+                        <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+                        <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>HR Consultation: {item.hr_consultation_hours} hrs</Text>
                     </View>
                 ) : null}
 
                 {Array.isArray(item.features) && item.features.length > 0 ? (
                     <View style={styles.featuresContainer}>
-                        <Text style={styles.featuresTitle}>Features:</Text>
+                        <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>Features:</Text>
                         <View style={styles.featuresList}>
                             {item.features.map((feature: string, index: number) => (
                                 <View key={index} style={styles.featureItem}>
-                                    <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                                    <Text style={styles.featureText}>{feature}</Text>
+                                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                                    <Text style={[styles.featureText, { color: theme.colors.textSecondary }]}>{feature}</Text>
                                 </View>
                             ))}
                         </View>
@@ -212,7 +213,8 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                     <Button
                         mode="outlined"
                         onPress={() => togglePlanStatus(item)}
-                        style={styles.actionButton}
+                        style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                        labelStyle={{ color: theme.colors.primary }}
                     >
                         {item.is_active !== false ? 'Deactivate' : 'Activate'}
                     </Button>
@@ -220,7 +222,8 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                         mode="contained"
                         onPress={() => openEditModal(item)}
                         style={styles.actionButton}
-                        buttonColor={Colors.primary}
+                        buttonColor={theme.colors.primary}
+                        textColor="white"
                     >
                         Edit
                     </Button>
@@ -230,26 +233,33 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <FlatList
                 data={plans}
                 renderItem={renderPlan}
                 keyExtractor={(item) => item.id}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadPlans} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={loadPlans}
+                        colors={[theme.colors.primary]}
+                        tintColor={theme.colors.primary}
+                    />
+                }
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="card-outline" size={64} color={Colors.textSecondary} />
-                        <Text style={styles.emptyText}>No subscription plans found</Text>
+                        <Ionicons name="card-outline" size={64} color={theme.colors.textSecondary} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No subscription plans found</Text>
                     </View>
                 }
             />
 
             <FAB
                 icon="plus"
-                style={styles.fab}
+                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
                 onPress={openAddModal}
-                color={Colors.white}
+                color="white"
             />
 
             <Modal
@@ -259,14 +269,14 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                 onRequestClose={() => setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                         <ScrollView>
                             <View style={styles.modalHeader}>
-                                <Title style={styles.modalTitle}>
+                                <Title style={[styles.modalTitle, { color: theme.colors.text }]}>
                                     {editingPlan ? 'Edit Plan' : 'Add New Plan'}
                                 </Title>
                                 <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                    <Ionicons name="close" size={24} color={Colors.text} />
+                                    <Ionicons name="close" size={24} color={theme.colors.text} />
                                 </TouchableOpacity>
                             </View>
 
@@ -337,7 +347,7 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                                 <Button
                                     mode="outlined"
                                     onPress={() => setModalVisible(false)}
-                                    style={styles.modalButton}
+                                    style={[styles.modalButton, { borderColor: theme.colors.outline }]}
                                     disabled={saving}
                                 >
                                     Cancel
@@ -346,7 +356,8 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
                                     mode="contained"
                                     onPress={handleSave}
                                     style={styles.modalButton}
-                                    buttonColor={Colors.primary}
+                                    buttonColor={theme.colors.primary}
+                                    textColor="white"
                                     loading={saving}
                                     disabled={saving}
                                 >
@@ -364,7 +375,6 @@ export default function SubscriptionPlansScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     listContent: {
         padding: 10,
@@ -385,11 +395,9 @@ const styles = StyleSheet.create({
     planName: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     planNameAr: {
         fontSize: 14,
-        color: Colors.textSecondary,
         marginTop: 2,
     },
     statusChip: {
@@ -397,7 +405,6 @@ const styles = StyleSheet.create({
     },
     priceContainer: {
         flexDirection: 'row',
-        backgroundColor: Colors.background,
         borderRadius: 8,
         padding: 12,
         marginBottom: 10,
@@ -408,17 +415,14 @@ const styles = StyleSheet.create({
     },
     priceDivider: {
         width: 1,
-        backgroundColor: Colors.border,
     },
     priceLabel: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginBottom: 4,
     },
     priceValue: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.primary,
     },
     detailRow: {
         flexDirection: 'row',
@@ -427,7 +431,6 @@ const styles = StyleSheet.create({
     },
     detailText: {
         fontSize: 13,
-        color: Colors.textSecondary,
         marginLeft: 8,
     },
     featuresContainer: {
@@ -437,7 +440,6 @@ const styles = StyleSheet.create({
     featuresTitle: {
         fontSize: 13,
         fontWeight: 'bold',
-        color: Colors.text,
         marginBottom: 4,
     },
     featuresList: {
@@ -450,7 +452,6 @@ const styles = StyleSheet.create({
     },
     featureText: {
         fontSize: 13,
-        color: Colors.textSecondary,
         marginLeft: 6,
     },
     actions: {
@@ -465,7 +466,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 16,
         bottom: 16,
-        backgroundColor: Colors.primary,
     },
     emptyContainer: {
         alignItems: 'center',
@@ -474,7 +474,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: Colors.textSecondary,
         marginTop: 10,
     },
     modalOverlay: {
@@ -484,7 +483,6 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     modalContent: {
-        backgroundColor: Colors.white,
         borderRadius: 12,
         padding: 20,
         maxHeight: '90%',
@@ -498,11 +496,9 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     modalInput: {
         marginBottom: 12,
-        backgroundColor: Colors.white,
     },
     row: {
         flexDirection: 'row',

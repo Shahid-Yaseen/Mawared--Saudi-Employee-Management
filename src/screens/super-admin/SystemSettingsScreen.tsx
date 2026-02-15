@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Card, Button, TextInput, Chip } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
 
 const WEEKEND_OPTIONS = [
@@ -60,6 +60,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
 };
 
 export default function SystemSettingsScreen() {
+    const { theme } = useTheme();
     const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -146,11 +147,11 @@ export default function SystemSettingsScreen() {
         <View style={styles.inputRow}>
             <View style={styles.inputLabelRow}>
                 {iconFamily === 'ionicons' ? (
-                    <Ionicons name={icon as any} size={18} color={Colors.primary} />
+                    <Ionicons name={icon as any} size={18} color={theme.colors.primary} />
                 ) : (
-                    <MaterialCommunityIcons name={icon as any} size={18} color={Colors.primary} />
+                    <MaterialCommunityIcons name={icon as any} size={18} color={theme.colors.primary} />
                 )}
-                <Text style={styles.inputLabel}>{label}</Text>
+                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{label}</Text>
             </View>
             <View style={styles.inputWrapper}>
                 <TextInput
@@ -158,12 +159,12 @@ export default function SystemSettingsScreen() {
                     value={String(settings[settingKey])}
                     onChangeText={(val) => updateSetting(settingKey, val.replace(/[^0-9.]/g, ''))}
                     keyboardType="numeric"
-                    style={styles.numberInput}
-                    outlineColor={Colors.border}
-                    activeOutlineColor={Colors.primary}
+                    style={[styles.numberInput, { backgroundColor: theme.colors.surface }]}
+                    outlineColor={theme.colors.outline}
+                    activeOutlineColor={theme.colors.primary}
                     dense
                 />
-                {suffix && <Text style={styles.inputSuffix}>{suffix}</Text>}
+                {suffix && <Text style={[styles.inputSuffix, { color: theme.colors.textSecondary }]}>{suffix}</Text>}
             </View>
         </View>
     );
@@ -178,11 +179,11 @@ export default function SystemSettingsScreen() {
         <View style={styles.inputRow}>
             <View style={styles.inputLabelRow}>
                 {iconFamily === 'ionicons' ? (
-                    <Ionicons name={icon as any} size={18} color={Colors.primary} />
+                    <Ionicons name={icon as any} size={18} color={theme.colors.primary} />
                 ) : (
-                    <MaterialCommunityIcons name={icon as any} size={18} color={Colors.primary} />
+                    <MaterialCommunityIcons name={icon as any} size={18} color={theme.colors.primary} />
                 )}
-                <Text style={styles.inputLabel}>{label}</Text>
+                <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{label}</Text>
             </View>
             <View style={styles.chipRow}>
                 {options.map((opt) => {
@@ -195,13 +196,14 @@ export default function SystemSettingsScreen() {
                             onPress={() => updateSetting(settingKey, opt.value)}
                             style={[
                                 styles.optionChip,
-                                isSelected && { backgroundColor: Colors.primary + '20' },
+                                isSelected && { backgroundColor: theme.colors.primary + '20' },
                             ]}
                             textStyle={[
                                 styles.optionChipText,
-                                isSelected && { color: Colors.primary },
+                                isSelected && { color: theme.colors.primary },
+                                !isSelected && { color: theme.colors.textSecondary },
                             ]}
-                            selectedColor={Colors.primary}
+                            selectedColor={theme.colors.primary}
                         >
                             {opt.label}
                         </Chip>
@@ -222,40 +224,40 @@ export default function SystemSettingsScreen() {
             <View style={styles.toggleInfo}>
                 <View style={styles.inputLabelRow}>
                     {iconFamily === 'ionicons' ? (
-                        <Ionicons name={icon as any} size={18} color={Colors.primary} />
+                        <Ionicons name={icon as any} size={18} color={theme.colors.primary} />
                     ) : (
-                        <MaterialCommunityIcons name={icon as any} size={18} color={Colors.primary} />
+                        <MaterialCommunityIcons name={icon as any} size={18} color={theme.colors.primary} />
                     )}
-                    <Text style={styles.inputLabel}>{label}</Text>
+                    <Text style={[styles.inputLabel, { color: theme.colors.text }]}>{label}</Text>
                 </View>
-                <Text style={styles.toggleDescription}>{description}</Text>
+                <Text style={[styles.toggleDescription, { color: theme.colors.textSecondary }]}>{description}</Text>
             </View>
             <Switch
                 value={settings[settingKey] as boolean}
                 onValueChange={(val) => updateSetting(settingKey, val)}
-                trackColor={{ false: Colors.border, true: Colors.primary + '60' }}
-                thumbColor={settings[settingKey] ? Colors.primary : '#f4f3f4'}
+                trackColor={{ false: theme.colors.outline, true: theme.colors.primary + '60' }}
+                thumbColor={settings[settingKey] ? theme.colors.primary : '#f4f3f4'}
             />
         </View>
     );
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={styles.loadingText}>Loading settings...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading settings...</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Card style={styles.card}>
+                <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                     <Card.Content>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="map-marker-radius" size={22} color={Colors.primary} />
-                            <Text style={styles.sectionTitle}>Geofence Settings</Text>
+                            <MaterialCommunityIcons name="map-marker-radius" size={22} color={theme.colors.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Geofence Settings</Text>
                         </View>
                         {renderNumberInput('Default Radius', 'defaultRadius', 'locate-outline', 'ionicons', 'meters')}
                         {renderNumberInput('Min Radius', 'minRadius', 'remove-circle-outline', 'ionicons', 'meters')}
@@ -263,11 +265,11 @@ export default function SystemSettingsScreen() {
                     </Card.Content>
                 </Card>
 
-                <Card style={styles.card}>
+                <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                     <Card.Content>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="calendar-check" size={22} color={Colors.success} />
-                            <Text style={styles.sectionTitle}>Leave Settings</Text>
+                            <MaterialCommunityIcons name="calendar-check" size={22} color="#10B981" />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Leave Settings</Text>
                         </View>
                         {renderNumberInput('Annual Leave Default', 'annualLeaveDefault', 'calendar-outline', 'ionicons', 'days')}
                         {renderNumberInput('Sick Leave Default', 'sickLeaveDefault', 'medkit-outline', 'ionicons', 'days')}
@@ -275,11 +277,11 @@ export default function SystemSettingsScreen() {
                     </Card.Content>
                 </Card>
 
-                <Card style={styles.card}>
+                <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                     <Card.Content>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="cash-multiple" size={22} color={Colors.warning} />
-                            <Text style={styles.sectionTitle}>Payroll Settings</Text>
+                            <MaterialCommunityIcons name="cash-multiple" size={22} color="#F59E0B" />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Payroll Settings</Text>
                         </View>
                         {renderNumberInput('Payroll Cycle Day', 'payrollCycleDay', 'calendar-number-outline', 'ionicons', 'of month')}
                         {renderNumberInput('Overtime Multiplier', 'overtimeMultiplier', 'timer-outline', 'ionicons', 'x')}
@@ -287,11 +289,11 @@ export default function SystemSettingsScreen() {
                     </Card.Content>
                 </Card>
 
-                <Card style={styles.card}>
+                <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                     <Card.Content>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="cog" size={22} color={Colors.info} />
-                            <Text style={styles.sectionTitle}>Platform Settings</Text>
+                            <MaterialCommunityIcons name="cog" size={22} color="#3B82F6" />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Platform Settings</Text>
                         </View>
                         {renderToggle('Maintenance Mode', 'Put the system in maintenance mode', 'maintenanceMode', 'construct-outline', 'ionicons')}
                         {renderNumberInput('Max Stores Per Owner', 'maxStoresPerOwner', 'storefront-outline', 'ionicons')}
@@ -302,7 +304,7 @@ export default function SystemSettingsScreen() {
                 <View style={styles.bottomSpacing} />
             </ScrollView>
 
-            <View style={styles.saveContainer}>
+            <View style={[styles.saveContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.divider }]}>
                 <Button
                     mode="contained"
                     onPress={handleSave}
@@ -310,7 +312,8 @@ export default function SystemSettingsScreen() {
                     disabled={saving || !hasChanges}
                     style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]}
                     labelStyle={styles.saveButtonLabel}
-                    buttonColor={Colors.primary}
+                    buttonColor={theme.colors.primary}
+                    textColor="white"
                     icon={({ size, color }) => (
                         <MaterialCommunityIcons name="content-save" size={size} color={color} />
                     )}
@@ -325,18 +328,15 @@ export default function SystemSettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: Colors.background,
     },
     loadingText: {
         marginTop: 12,
         fontSize: 14,
-        color: Colors.textSecondary,
     },
     scrollContent: {
         padding: 12,
@@ -355,7 +355,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: Colors.text,
     },
     inputRow: {
         marginBottom: 16,
@@ -369,7 +368,6 @@ const styles = StyleSheet.create({
     inputLabel: {
         fontSize: 14,
         fontWeight: '500',
-        color: Colors.text,
     },
     inputWrapper: {
         flexDirection: 'row',
@@ -378,12 +376,10 @@ const styles = StyleSheet.create({
     },
     numberInput: {
         flex: 1,
-        backgroundColor: Colors.white,
         height: 42,
     },
     inputSuffix: {
         fontSize: 13,
-        color: Colors.textSecondary,
         minWidth: 50,
     },
     chipRow: {
@@ -409,16 +405,13 @@ const styles = StyleSheet.create({
     },
     toggleDescription: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginTop: 2,
         marginLeft: 26,
     },
     saveContainer: {
         padding: 12,
         paddingBottom: 24,
-        backgroundColor: Colors.white,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
         elevation: 8,
     },
     saveButton: {
@@ -431,7 +424,6 @@ const styles = StyleSheet.create({
     saveButtonLabel: {
         fontSize: 16,
         fontWeight: '600',
-        color: Colors.white,
     },
     bottomSpacing: {
         height: 20,

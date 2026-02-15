@@ -13,7 +13,7 @@ import {
 import { Card, Chip, Searchbar, Button, Avatar, Modal, Portal } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
 
 const ROLES = ['All', 'store_owner', 'hr_team', 'employee', 'super_admin'];
@@ -33,6 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function UserManagementScreen() {
+    const { theme } = useTheme();
     const [users, setUsers] = useState<any[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +87,7 @@ export default function UserManagementScreen() {
     };
 
     const getRoleColor = (role: string) => {
-        return ROLE_COLORS[role] || Colors.textSecondary;
+        return ROLE_COLORS[role] || theme.colors.textSecondary;
     };
 
     const getRoleLabel = (role: string) => {
@@ -182,36 +183,44 @@ export default function UserManagementScreen() {
     };
 
     const renderRoleFilter = () => (
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterContainer}
-            contentContainerStyle={styles.filterContent}
-        >
-            {ROLES.map((role) => {
-                const isSelected = selectedRole === role;
-                const chipColor = role === 'All' ? Colors.primary : getRoleColor(role);
-                return (
-                    <Chip
-                        key={role}
-                        mode={isSelected ? 'flat' : 'outlined'}
-                        selected={isSelected}
-                        onPress={() => setSelectedRole(role)}
-                        style={[
-                            styles.filterChip,
-                            isSelected && { backgroundColor: chipColor + '20' },
-                        ]}
-                        textStyle={[
-                            styles.filterChipText,
-                            isSelected && { color: chipColor },
-                        ]}
-                        selectedColor={chipColor}
-                    >
-                        {role === 'All' ? 'All' : getRoleLabel(role)}
-                    </Chip>
-                );
-            })}
-        </ScrollView>
+        <View style={styles.filterOuterContainer}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterContainer}
+                contentContainerStyle={styles.filterContent}
+            >
+                {ROLES.map((role) => {
+                    const isSelected = selectedRole === role;
+                    const chipColor = role === 'All' ? theme.colors.primary : getRoleColor(role);
+                    return (
+                        <Chip
+                            key={role}
+                            mode={isSelected ? 'flat' : 'outlined'}
+                            selected={isSelected}
+                            onPress={() => setSelectedRole(role)}
+                            style={[
+                                styles.filterChip,
+                                {
+                                    borderColor: isSelected ? chipColor : theme.colors.divider,
+                                    backgroundColor: isSelected ? chipColor + '15' : theme.colors.surface,
+                                },
+                            ]}
+                            textStyle={[
+                                styles.filterChipText,
+                                {
+                                    color: isSelected ? chipColor : theme.colors.text,
+                                    fontWeight: isSelected ? '700' : '400',
+                                },
+                            ]}
+                            showSelectedOverlay
+                        >
+                            {role === 'All' ? 'All Roles' : getRoleLabel(role)}
+                        </Chip>
+                    );
+                })}
+            </ScrollView>
+        </View>
     );
 
     const renderUser = ({ item }: any) => {
@@ -222,36 +231,36 @@ export default function UserManagementScreen() {
         const isLoadingStatus = actionLoading === item.id + '_status';
 
         return (
-            <Card style={[styles.card, isBanned && styles.cardBanned]}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }, isBanned && styles.cardBanned]}>
                 <Card.Content>
                     <View style={styles.cardHeader}>
                         <Avatar.Text
                             size={50}
                             label={getInitials(item.full_name)}
                             style={{ backgroundColor: roleColor }}
-                            labelStyle={{ color: Colors.white }}
+                            labelStyle={{ color: 'white' }}
                         />
                         <View style={styles.userInfo}>
                             <View style={styles.nameRow}>
-                                <Text style={styles.userName}>{item.full_name || 'Unknown'}</Text>
+                                <Text style={[styles.userName, { color: theme.colors.text }]}>{item.full_name || 'Unknown'}</Text>
                                 {isBanned && (
                                     <Chip
                                         mode="flat"
-                                        style={styles.bannedChip}
-                                        textStyle={styles.bannedChipText}
+                                        style={[styles.bannedChip, { backgroundColor: '#EF444420' }]}
+                                        textStyle={{ color: '#EF4444', fontSize: 10 }}
                                     >
                                         Inactive
                                     </Chip>
                                 )}
                             </View>
                             <View style={styles.infoRow}>
-                                <Ionicons name="mail-outline" size={14} color={Colors.textSecondary} />
-                                <Text style={styles.userEmail}>{item.email}</Text>
+                                <Ionicons name="mail-outline" size={14} color={theme.colors.textSecondary} />
+                                <Text style={[styles.userEmail, { color: theme.colors.textSecondary }]}>{item.email}</Text>
                             </View>
                             {item.phone && (
                                 <View style={styles.infoRow}>
-                                    <Ionicons name="call-outline" size={14} color={Colors.textSecondary} />
-                                    <Text style={styles.userPhone}>{item.phone}</Text>
+                                    <Ionicons name="call-outline" size={14} color={theme.colors.textSecondary} />
+                                    <Text style={[styles.userPhone, { color: theme.colors.textSecondary }]}>{item.phone}</Text>
                                 </View>
                             )}
                         </View>
@@ -264,10 +273,10 @@ export default function UserManagementScreen() {
                         </Chip>
                     </View>
 
-                    <View style={styles.details}>
+                    <View style={[styles.details, { borderTopColor: theme.colors.divider }]}>
                         <View style={styles.detailRow}>
-                            <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
-                            <Text style={styles.detailText}>
+                            <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
+                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
                                 Joined: {new Date(item.created_at).toLocaleDateString()}
                             </Text>
                         </View>
@@ -283,8 +292,8 @@ export default function UserManagementScreen() {
                             icon={({ size, color }) => (
                                 <MaterialCommunityIcons name="account-convert" size={16} color={color} />
                             )}
-                            style={styles.actionButton}
-                            labelStyle={styles.actionButtonLabel}
+                            style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                            labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
                         >
                             Role
                         </Button>
@@ -297,8 +306,8 @@ export default function UserManagementScreen() {
                             icon={({ size, color }) => (
                                 <MaterialCommunityIcons name="lock-reset" size={16} color={color} />
                             )}
-                            style={styles.actionButton}
-                            labelStyle={styles.actionButtonLabel}
+                            style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                            labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
                         >
                             Reset
                         </Button>
@@ -312,16 +321,16 @@ export default function UserManagementScreen() {
                                 <Ionicons
                                     name={isBanned ? 'checkmark-circle-outline' : 'ban-outline'}
                                     size={16}
-                                    color={isBanned ? Colors.success : Colors.error}
+                                    color={isBanned ? '#10B981' : '#EF4444'}
                                 />
                             )}
                             style={[
                                 styles.actionButton,
-                                { borderColor: isBanned ? Colors.success : Colors.error },
+                                { borderColor: isBanned ? '#10B981' : '#EF4444' },
                             ]}
                             labelStyle={[
                                 styles.actionButtonLabel,
-                                { color: isBanned ? Colors.success : Colors.error },
+                                { color: isBanned ? '#10B981' : '#EF4444' },
                             ]}
                         >
                             {isBanned ? 'Activate' : 'Deactivate'}
@@ -337,11 +346,11 @@ export default function UserManagementScreen() {
             <Modal
                 visible={roleModalVisible}
                 onDismiss={() => setRoleModalVisible(false)}
-                contentContainerStyle={styles.modalContainer}
+                contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
             >
-                <Text style={styles.modalTitle}>Change Role</Text>
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Change Role</Text>
                 {selectedUser && (
-                    <Text style={styles.modalSubtitle}>
+                    <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
                         {selectedUser.full_name || selectedUser.email}
                     </Text>
                 )}
@@ -354,13 +363,14 @@ export default function UserManagementScreen() {
                                 key={role}
                                 style={[
                                     styles.roleOption,
+                                    { borderColor: theme.colors.outline },
                                     isCurrentRole && { backgroundColor: roleColor + '15', borderColor: roleColor },
                                 ]}
                                 onPress={() => confirmRoleChange(role)}
                                 disabled={isCurrentRole}
                             >
                                 <View style={[styles.roleIndicator, { backgroundColor: roleColor }]} />
-                                <Text style={[styles.roleOptionText, isCurrentRole && { fontWeight: '700' }]}>
+                                <Text style={[styles.roleOptionText, { color: theme.colors.text }, isCurrentRole && { fontWeight: '700' }]}>
                                     {getRoleLabel(role)}
                                 </Text>
                                 {isCurrentRole && (
@@ -373,7 +383,7 @@ export default function UserManagementScreen() {
                 <Button
                     mode="outlined"
                     onPress={() => setRoleModalVisible(false)}
-                    style={styles.modalCancelButton}
+                    style={[styles.modalCancelButton, { borderColor: theme.colors.outline }]}
                 >
                     Cancel
                 </Button>
@@ -383,26 +393,28 @@ export default function UserManagementScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={styles.loadingText}>Loading users...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading users...</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Searchbar
                 placeholder="Search by name or email..."
                 onChangeText={setSearchQuery}
                 value={searchQuery}
-                style={styles.searchBar}
-                iconColor={Colors.textSecondary}
+                style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
+                iconColor={theme.colors.textSecondary}
+                placeholderTextColor={theme.colors.textSecondary}
+                inputStyle={{ color: theme.colors.text }}
             />
 
             {renderRoleFilter()}
 
-            <Text style={styles.resultsCount}>
+            <Text style={[styles.resultsCount, { color: theme.colors.textSecondary }]}>
                 {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
             </Text>
 
@@ -414,16 +426,16 @@ export default function UserManagementScreen() {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={loadUsers}
-                        colors={[Colors.primary]}
-                        tintColor={Colors.primary}
+                        colors={[theme.colors.primary]}
+                        tintColor={theme.colors.primary}
                     />
                 }
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="people-outline" size={64} color={Colors.textSecondary} />
-                        <Text style={styles.emptyText}>No users found</Text>
-                        <Text style={styles.emptySubtext}>
+                        <Ionicons name="people-outline" size={64} color={theme.colors.textSecondary} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No users found</Text>
+                        <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
                             {searchQuery || selectedRole !== 'All'
                                 ? 'Try adjusting your search or filters'
                                 : 'No users registered yet'}
@@ -440,42 +452,46 @@ export default function UserManagementScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: Colors.background,
     },
     loadingText: {
         marginTop: 12,
         fontSize: 14,
-        color: Colors.textSecondary,
     },
     searchBar: {
         margin: 12,
         elevation: 2,
         borderRadius: 8,
     },
+    filterOuterContainer: {
+        backgroundColor: 'transparent',
+        marginBottom: 8,
+    },
     filterContainer: {
-        maxHeight: 50,
+        maxHeight: 60,
     },
     filterContent: {
         paddingHorizontal: 12,
-        gap: 8,
+        paddingVertical: 4,
+        flexDirection: 'row',
     },
     filterChip: {
-        marginRight: 4,
+        marginRight: 8,
+        height: 36,
+        justifyContent: 'center',
     },
     filterChipText: {
         fontSize: 13,
     },
     resultsCount: {
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        fontSize: 13,
-        color: Colors.textSecondary,
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+        fontSize: 12,
+        fontWeight: '600',
     },
     listContent: {
         padding: 12,
@@ -489,7 +505,7 @@ const styles = StyleSheet.create({
     cardBanned: {
         opacity: 0.7,
         borderLeftWidth: 3,
-        borderLeftColor: Colors.error,
+        borderLeftColor: '#EF4444',
     },
     cardHeader: {
         flexDirection: 'row',
@@ -507,15 +523,9 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     bannedChip: {
-        backgroundColor: Colors.error + '20',
         height: 22,
-    },
-    bannedChipText: {
-        color: Colors.error,
-        fontSize: 10,
     },
     infoRow: {
         flexDirection: 'row',
@@ -525,11 +535,9 @@ const styles = StyleSheet.create({
     },
     userEmail: {
         fontSize: 13,
-        color: Colors.textSecondary,
     },
     userPhone: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     roleChip: {
         height: 28,
@@ -538,7 +546,6 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: Colors.border + '50',
     },
     detailRow: {
         flexDirection: 'row',
@@ -547,7 +554,6 @@ const styles = StyleSheet.create({
     },
     detailText: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     actionButtons: {
         flexDirection: 'row',
@@ -563,7 +569,6 @@ const styles = StyleSheet.create({
         marginVertical: 2,
     },
     modalContainer: {
-        backgroundColor: Colors.white,
         margin: 20,
         borderRadius: 16,
         padding: 24,
@@ -571,12 +576,10 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: Colors.text,
         marginBottom: 4,
     },
     modalSubtitle: {
         fontSize: 14,
-        color: Colors.textSecondary,
         marginBottom: 20,
     },
     roleOptions: {
@@ -588,7 +591,6 @@ const styles = StyleSheet.create({
         padding: 14,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: Colors.border,
         gap: 12,
     },
     roleIndicator: {
@@ -599,7 +601,6 @@ const styles = StyleSheet.create({
     roleOptionText: {
         flex: 1,
         fontSize: 15,
-        color: Colors.text,
     },
     modalCancelButton: {
         marginTop: 16,
@@ -612,13 +613,11 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: Colors.textSecondary,
         marginTop: 12,
         fontWeight: '600',
     },
     emptySubtext: {
         fontSize: 13,
-        color: Colors.textSecondary,
         marginTop: 4,
     },
 });

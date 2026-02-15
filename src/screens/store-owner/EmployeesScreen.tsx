@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -7,12 +8,16 @@ import {
     TouchableOpacity,
     RefreshControl,
     useWindowDimensions,
+    Alert,
+    Platform,
+    ActivityIndicator,
 } from 'react-native';
-import { Card, FAB, Searchbar, Chip } from 'react-native-paper';
+import { Card, FAB, Searchbar, Chip, Button } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
+import { adminApi } from '../../services/adminApi';
 
 
 export default function EmployeesScreen({ navigation }: any) {
@@ -26,37 +31,26 @@ export default function EmployeesScreen({ navigation }: any) {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            console.log('EmployeesScreen focused, loading employees...');
+            loadData();
+        }, [filterStatus])
+    );
 
     const loadData = async () => {
+        if (!refreshing) setLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            console.log('API CALL: getEmployees starting...');
+            // The API will automatically detect the user's store if we don't pass an ID
+            const result = await adminApi.getEmployees();
+            console.log('API RESULT: getEmployees success:', result.success, 'Count:', result.employees?.length);
 
-            const { data: storeData } = await supabase
-                .from('stores')
-                .select('id')
-                .eq('owner_id', user.id)
-                .single();
-
-            if (storeData) {
-                let query = supabase
-                    .from('employees')
-                    .select('*, profiles(full_name, email, phone)')
-                    .eq('store_id', storeData.id);
-
-                if (filterStatus) {
-                    query = query.eq('status', filterStatus);
-                }
-
-                const { data: empData } = await query.order('created_at', { ascending: false });
-
-                setEmployees(empData || []);
+            if (result.success) {
+                setEmployees(result.employees || []);
             }
         } catch (error) {
-            console.error('Error loading employees:', error);
+            console.error('API ERROR: loading employees failed:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -66,6 +60,49 @@ export default function EmployeesScreen({ navigation }: any) {
     const onRefresh = () => {
         setRefreshing(true);
         loadData();
+    };
+
+    const toggleEmployeeStatus = async (employeeId: string, currentStatus: string) => {
+        try {
+            const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+            const result = await adminApi.toggleEmployeeStatus(employeeId, newStatus);
+            if (result.success) {
+                loadData();
+            }
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to update status');
+        }
+    };
+
+    const handleResetPassword = async (item: any) => {
+        const resetAction = async () => {
+            try {
+                setLoading(true);
+                const result = await adminApi.resetEmployeePassword(item.id);
+                if (result.success) {
+                    Alert.alert('Success', `Password reset instructions sent to ${item.profiles?.email}`);
+                }
+            } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to reset password');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm('Are you sure you want to reset password for this employee?')) {
+                resetAction();
+            }
+        } else {
+            Alert.alert(
+                'Reset Password',
+                'Are you sure you want to reset password for this employee?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Reset', style: 'destructive', onPress: resetAction }
+                ]
+            );
+        }
     };
 
     const filteredEmployees = employees.filter((emp) =>
@@ -85,18 +122,27 @@ export default function EmployeesScreen({ navigation }: any) {
     };
 
     const renderEmployee = ({ item }: any) => (
-        <TouchableOpacity
-            onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
-        >
-            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                <Card.Content>
-                    <View style={styles.employeeHeader}>
-                        <View style={styles.employeeInfo}>
-                            <Text style={[styles.employeeName, { color: theme.colors.text }]}>
-                                {item.profiles?.full_name || 'Unknown'}
-                            </Text>
-                            <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>#{item.employee_number}</Text>
-                        </View>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <Card.Content>
+                <View style={styles.employeeHeader}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
+                        style={styles.employeeInfo}
+                    >
+                        <Text style={[styles.employeeName, { color: theme.colors.text }]}>
+                            {item.profiles?.full_name || 'Unknown'}
+                        </Text>
+                        <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>#{item.employee_number}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {(item.profiles?.role === 'hr' || item.position?.includes('HR')) && (
+                            <Chip
+                                style={{ backgroundColor: theme.colors.primary + '20', marginRight: 8 }}
+                                textStyle={{ color: theme.colors.primary, fontSize: 10, fontWeight: 'bold' }}
+                            >
+                                HR
+                            </Chip>
+                        )}
                         <Chip
                             style={[
                                 styles.statusChip,
@@ -104,102 +150,144 @@ export default function EmployeesScreen({ navigation }: any) {
                             ]}
                             textStyle={{ color: getStatusColor(item.status) }}
                         >
-                            {t(`employees.${item.status}`)}
-                        </Chip>
-                    </View>
-
-                    <View style={styles.employeeDetails}>
-                        <View style={styles.detailItem}>
-                            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.department')}</Text>
-                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.department}</Text>
-                        </View>
-                        <View style={styles.detailItem}>
-                            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.position')}</Text>
-                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.position}</Text>
-                        </View>
-                    </View>
-                </Card.Content>
-            </Card>
-        </TouchableOpacity>
-    );
-
-    return (
-            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-                {isLargeScreen && (
-                    <View style={{ padding: Spacing.lg, paddingBottom: 0 }}>
-                        <Text style={{ ...Typography.h3, fontWeight: '800', color: theme.colors.text }}>{t('employees.title')}</Text>
-                    </View>
-                )}
-                <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.divider }]}>
-                    <Searchbar
-                        placeholder={t('employees.searchPlaceholder')}
-                        onChangeText={setSearchQuery}
-                        value={searchQuery}
-                        style={[styles.searchBar, { backgroundColor: theme.colors.background }]}
-                        inputStyle={{ color: theme.colors.text }}
-                        iconColor={theme.colors.textSecondary}
-                    />
-
-                    <View style={styles.filterContainer}>
-                        <Chip
-                            selected={filterStatus === null}
-                            onPress={() => {
-                                setFilterStatus(null);
-                                loadData();
-                            }}
-                            style={styles.filterChip}
-                            selectedColor={theme.colors.primary}
-                        >
-                            All
-                        </Chip>
-                        <Chip
-                            selected={filterStatus === 'active'}
-                            onPress={() => {
-                                setFilterStatus('active');
-                                loadData();
-                            }}
-                            style={styles.filterChip}
-                            selectedColor={theme.colors.primary}
-                        >
-                            {t('employees.active')}
-                        </Chip>
-                        <Chip
-                            selected={filterStatus === 'on_leave'}
-                            onPress={() => {
-                                setFilterStatus('on_leave');
-                                loadData();
-                            }}
-                            style={styles.filterChip}
-                            selectedColor={theme.colors.primary}
-                        >
-                            {t('employees.onLeave')}
+                            {item.status}
                         </Chip>
                     </View>
                 </View>
 
-                <FlatList
-                    data={filteredEmployees}
-                    renderItem={renderEmployee}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.list}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
-                    }
-                    ListEmptyComponent={
+                <View style={styles.employeeDetails}>
+                    <View style={styles.detailItem}>
+                        <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.department')}</Text>
+                        <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.department}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                        <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.position')}</Text>
+                        <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.position}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.actions}>
+                    <Button
+                        mode="outlined"
+                        onPress={() => navigation.navigate('EditEmployee', { employeeId: item.id, initialData: item })}
+                        style={[styles.actionButton, { borderColor: theme.colors.primary }]}
+                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                    >
+                        Edit
+                    </Button>
+                    <Button
+                        mode="outlined"
+                        onPress={() => toggleEmployeeStatus(item.id, item.status)}
+                        style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                    >
+                        {item.status === 'active' ? 'Disable' : 'Enable'}
+                    </Button>
+                    <Button
+                        mode="outlined"
+                        onPress={() => handleResetPassword(item)}
+                        style={[styles.actionButton, { borderColor: theme.colors.error }]}
+                        labelStyle={{ color: theme.colors.error, fontSize: 11 }}
+                    >
+                        Rest Pass
+                    </Button>
+                    <Button
+                        mode="outlined"
+                        onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
+                        style={[styles.actionButton, { borderColor: theme.colors.primary }]}
+                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                    >
+                        Info
+                    </Button>
+                </View>
+            </Card.Content>
+        </Card>
+    );
+
+    return (
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {isLargeScreen && (
+                <View style={{ padding: Spacing.lg, paddingBottom: 0 }}>
+                    <Text style={{ ...Typography.h3, fontWeight: '800', color: theme.colors.text }}>{t('employees.title')}</Text>
+                </View>
+            )}
+            <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.divider }]}>
+                <Searchbar
+                    placeholder={t('employees.searchPlaceholder')}
+                    onChangeText={setSearchQuery}
+                    value={searchQuery}
+                    style={[styles.searchBar, { backgroundColor: theme.colors.background }]}
+                    inputStyle={{ color: theme.colors.text }}
+                    iconColor={theme.colors.textSecondary}
+                />
+
+                <View style={styles.filterContainer}>
+                    <Chip
+                        selected={filterStatus === null}
+                        onPress={() => {
+                            setFilterStatus(null);
+                            loadData();
+                        }}
+                        style={styles.filterChip}
+                        selectedColor={theme.colors.primary}
+                    >
+                        All
+                    </Chip>
+                    <Chip
+                        selected={filterStatus === 'active'}
+                        onPress={() => {
+                            setFilterStatus('active');
+                            loadData();
+                        }}
+                        style={styles.filterChip}
+                        selectedColor={theme.colors.primary}
+                    >
+                        {t('employees.active')}
+                    </Chip>
+                    <Chip
+                        selected={filterStatus === 'on_leave'}
+                        onPress={() => {
+                            setFilterStatus('on_leave');
+                            loadData();
+                        }}
+                        style={styles.filterChip}
+                        selectedColor={theme.colors.primary}
+                    >
+                        {t('employees.onLeave')}
+                    </Chip>
+                </View>
+            </View>
+
+            <FlatList
+                data={filteredEmployees}
+                renderItem={renderEmployee}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.list}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+                }
+                ListEmptyComponent={
+                    loading ? (
+                        <View style={styles.emptyContainer}>
+                            <ActivityIndicator size="large" color={theme.colors.primary} />
+                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary, marginTop: 10 }]}>Loading employees...</Text>
+                        </View>
+                    ) : (
                         <View style={styles.emptyContainer}>
                             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No employees found</Text>
                         </View>
-                    }
-                />
+                    )
+                }
+            />
 
-                <FAB
-                    icon="plus"
-                    label={t('employees.addEmployee')}
-                    style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                    color="#FFFFFF"
-                    onPress={() => navigation.navigate('AddEmployee')}
-                />
-            </View>
+            <FAB
+                icon="plus"
+                label={t('employees.addEmployee')}
+                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                color="#FFFFFF"
+                onPress={() => navigation.navigate('AddEmployee')}
+            />
+        </View>
     );
 }
 
@@ -274,5 +362,16 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: Spacing.md,
         bottom: Spacing.md,
+    },
+    actions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: 8,
+        marginTop: Spacing.md,
+        flexWrap: 'wrap',
+    },
+    actionButton: {
+        height: 32,
+        borderRadius: 4,
     },
 });

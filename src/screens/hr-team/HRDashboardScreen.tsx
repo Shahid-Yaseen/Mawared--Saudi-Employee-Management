@@ -10,7 +10,7 @@ import {
 import { Card, Title, Paragraph, Button, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../store/ThemeContext';
 
 interface DashboardStats {
     totalStores: number;
@@ -27,6 +27,7 @@ interface RecentActivity {
 }
 
 export default function HRDashboardScreen({ navigation }: any) {
+    const { theme } = useTheme();
     const [stats, setStats] = useState<DashboardStats>({
         totalStores: 0,
         totalEmployees: 0,
@@ -111,25 +112,28 @@ export default function HRDashboardScreen({ navigation }: any) {
     };
 
     const StatCard = ({ title, value, icon, color, onPress }: any) => (
-        <TouchableOpacity onPress={onPress} style={styles.statCard}>
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.statCard, { backgroundColor: theme.colors.surface }]}
+        >
             <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
                 <Ionicons name={icon} size={32} color={color} />
             </View>
             <View style={styles.statContent}>
-                <Text style={styles.statValue}>{value}</Text>
-                <Text style={styles.statTitle}>{title}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+                <Text style={[styles.statTitle, { color: theme.colors.textSecondary }]}>{title}</Text>
             </View>
         </TouchableOpacity>
     );
 
     return (
         <ScrollView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
             }
         >
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
                 <Title style={styles.headerTitle}>HR Dashboard</Title>
                 <Paragraph style={styles.headerSubtitle}>
                     Multi-Store Management Overview
@@ -142,50 +146,52 @@ export default function HRDashboardScreen({ navigation }: any) {
                     title="Total Stores"
                     value={stats.totalStores}
                     icon="business"
-                    color={Colors.primary}
+                    color={theme.colors.primary}
                     onPress={() => navigation.navigate('StoreManagement')}
                 />
                 <StatCard
                     title="Total Employees"
                     value={stats.totalEmployees}
                     icon="people"
-                    color={Colors.success}
+                    color={theme.colors.success}
                     onPress={() => navigation.navigate('EmployeeDirectory')}
                 />
                 <StatCard
                     title="Pending Leaves"
                     value={stats.pendingLeaveRequests}
                     icon="calendar"
-                    color={Colors.warning}
+                    color={theme.colors.warning}
                     onPress={() => navigation.navigate('LeaveApprovals')}
                 />
                 <StatCard
                     title="Pending Requests"
                     value={stats.pendingEmployeeRequests}
                     icon="document-text"
-                    color={Colors.info}
+                    color={theme.colors.info}
                     onPress={() => navigation.navigate('EmployeeRequests')}
                 />
             </View>
 
             {/* Quick Actions */}
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Title>Quick Actions</Title>
+                    <Title style={{ color: theme.colors.text }}>Quick Actions</Title>
                     <View style={styles.quickActions}>
                         <Button
                             mode="contained"
-                            icon="people"
+                            icon="account-group"
                             onPress={() => navigation.navigate('EmployeeDirectory')}
                             style={styles.actionButton}
+                            buttonColor={theme.colors.primary}
                         >
                             Employee Directory
                         </Button>
                         <Button
                             mode="contained"
-                            icon="calendar"
+                            icon="calendar-check"
                             onPress={() => navigation.navigate('LeaveApprovals')}
                             style={styles.actionButton}
+                            buttonColor={theme.colors.primary}
                         >
                             Approve Leaves
                         </Button>
@@ -194,14 +200,16 @@ export default function HRDashboardScreen({ navigation }: any) {
                             icon="cash"
                             onPress={() => navigation.navigate('PayrollOverview')}
                             style={styles.actionButton}
+                            buttonColor={theme.colors.primary}
                         >
                             Payroll Overview
                         </Button>
                         <Button
                             mode="contained"
-                            icon="stats-chart"
+                            icon="chart-bar"
                             onPress={() => navigation.navigate('Reports')}
                             style={styles.actionButton}
+                            buttonColor={theme.colors.primary}
                         >
                             View Reports
                         </Button>
@@ -210,22 +218,22 @@ export default function HRDashboardScreen({ navigation }: any) {
             </Card>
 
             {/* Recent Activity */}
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
-                    <Title>Recent Activity</Title>
+                    <Title style={{ color: theme.colors.text }}>Recent Activity</Title>
                     {recentActivity.length === 0 ? (
-                        <Paragraph style={styles.emptyText}>No recent activity</Paragraph>
+                        <Paragraph style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No recent activity</Paragraph>
                     ) : (
                         recentActivity.map((activity) => (
-                            <View key={activity.id} style={styles.activityItem}>
+                            <View key={activity.id} style={[styles.activityItem, { borderBottomColor: theme.colors.divider }]}>
                                 <Ionicons
                                     name="time-outline"
                                     size={20}
-                                    color={Colors.textSecondary}
+                                    color={theme.colors.textSecondary}
                                 />
                                 <View style={styles.activityContent}>
-                                    <Text style={styles.activityMessage}>{activity.message}</Text>
-                                    <Text style={styles.activityTime}>
+                                    <Text style={[styles.activityMessage, { color: theme.colors.text }]}>{activity.message}</Text>
+                                    <Text style={[styles.activityTime, { color: theme.colors.textSecondary }]}>
                                         {new Date(activity.timestamp).toLocaleString()}
                                     </Text>
                                 </View>
@@ -241,11 +249,9 @@ export default function HRDashboardScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 20,
-        backgroundColor: Colors.primary,
     },
     headerTitle: {
         color: '#fff',
@@ -263,7 +269,6 @@ const styles = StyleSheet.create({
     },
     statCard: {
         width: '48%',
-        backgroundColor: '#fff',
         borderRadius: 12,
         padding: 15,
         margin: '1%',
@@ -289,11 +294,9 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     statTitle: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     card: {
         margin: 10,
@@ -309,7 +312,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     activityContent: {
         flex: 1,
@@ -317,16 +319,13 @@ const styles = StyleSheet.create({
     },
     activityMessage: {
         fontSize: 14,
-        color: Colors.text,
     },
     activityTime: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginTop: 2,
     },
     emptyText: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         marginTop: 20,
     },
 });

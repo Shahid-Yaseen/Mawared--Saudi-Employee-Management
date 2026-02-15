@@ -1,4 +1,7 @@
-import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
+if (Platform.OS !== 'web') {
+  require('react-native-url-polyfill/auto');
+}
 import React, { useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -39,13 +42,17 @@ function Main() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('App: Auth State Changed:', event, session?.user?.email);
         if (event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+          console.log('App: User updated, reloading profile...');
           await loadUserProfile(session?.user?.id || '');
           return;
         }
         if (session?.user) {
+          console.log('App: Session found, loading profile...');
           await loadUserProfile(session.user.id);
         } else {
+          console.log('App: No session, clearing state');
           setIsAuthenticated(false);
           setUserRole(null);
           setMustChangePassword(false);
