@@ -1,0 +1,180 @@
+# Mawared - Employee Affairs Management Platform
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)
+
+**Simplifying Employee Management for Saudi Businesses**
+
+Mawared is a comprehensive employee affairs management platform designed specifically for small to medium-sized businesses in Saudi Arabia. Built to comply with Saudi labor laws, Mawared streamlines attendance tracking, leave management, payroll processing, and employee requests through an intuitive mobile and web platform.
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [User Types](#user-types)
+- [Technology Stack](#technology-stack)
+- [Core Modules](#core-modules)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Security Features](#security-features)
+- [Subscription Plans](#subscription-plans)
+- [License](#license)
+
+---
+
+## 🎯 Overview
+
+### The Problem
+Store owners and small businesses in Saudi Arabia struggle with:
+- ❌ Manual attendance tracking and time theft
+- ❌ Complex leave approval processes
+- ❌ Scattered employee request management
+- ❌ Inefficient payroll calculations
+- ❌ Lack of compliance with Saudi labor laws
+
+### The Solution
+Mawared provides:
+- ✅ **GPS-Based Attendance** - Ensure employees are on-site when clocking in/out
+- ✅ **Automated Leave Management** - Comply with Saudi labor law leave entitlements
+- ✅ **Centralized Request System** - Handle all employee requests in one place
+- ✅ **Smart Payroll Processing** - Automate salary calculations and deductions
+- ✅ **Real-Time Reports** - Get instant insights into workforce management
+
+---
+
+## ⭐ Key Features
+
+### 1. GPS-Based Attendance Tracking
+- **Geofencing Technology** - Employees can only clock in/out within designated work location radius (50-500m)
+- **Single Device Enforcement** - Prevents time theft by restricting attendance to one device per employee
+- **Real-Time Verification** - GPS coordinates and timestamps captured with each entry
+- **Automatic Status Detection** - Flags late arrivals, early departures, and absences
+- **Device Change Protection** - 14-day cooldown period with admin approval required
+
+### 2. Comprehensive Leave Management
+- **Saudi Labor Law Compliance** - Pre-configured leave types (Annual, Sick, Emergency, Hajj, Maternity, etc.)
+- **Automatic Balance Tracking** - Real-time leave balance accrual and deduction
+- **Multi-Level Approvals** - Configurable approval workflows per store
+- **Leave Calendar** - Visual representation of team availability
+- **Leave Forecasting** - Plan upcoming absences and team capacity
+
+### 3. Employee Request System
+- **Multiple Request Types** - Salary certificates, experience letters, housing allowances, bonuses, etc.
+- **Intelligent Routing** - Requests automatically directed to appropriate approver (Store Owner, HR Team, or Auto-Approved)
+- **Configurable Workflows** - Each store can customize approval sequences
+- **Status Tracking** - Real-time updates on request progress
+- **Document Generation** - Automated creation of official documents
+
+### 4. Smart Payroll Processing
+- **Attendance Integration** - Hours worked automatically calculated from attendance data
+- **Deduction Management** - Late arrivals, early departures, and absences handled automatically
+- **Leave Impact** - Unpaid leaves deducted, paid leaves processed correctly
+- **Saudi Compliance** - GOSI, overtime, and end-of-service calculations
+- **Payslip Generation** - Automated monthly payslips for all employees
+
+### 5. Analytics & Reporting
+- **Live Dashboards** - Real-time workforce metrics and KPIs
+- **Attendance Reports** - Daily, weekly, monthly summaries with export to Excel/PDF
+- **Leave Analytics** - Leave utilization, trends, and forecasting
+- **Request Analytics** - Processing times, approval rates, bottlenecks
+- **Custom Reports** - Build your own reports with flexible filters
+
+### 6. Multi-Tenant Architecture
+- **Store Isolation** - Complete data separation between different stores
+- **Row-Level Security** - Database-level access control for maximum security
+- **Scalable Design** - Supports unlimited stores and employees
+- **VIP Accounts** - Custom features and limits for enterprise clients
+
+---
+
+## 👥 User Types
+
+### 1. Super Admin (Platform Administrator)
+**Who:** Mawared platform administrators  
+**Capabilities:**
+- ✅ Manage all stores and users across the platform
+- ✅ Create and configure subscription plans
+- ✅ Add Store Owners and assign packages
+- ✅ Assign HR Team members to stores
+- ✅ View global analytics and reports
+- ✅ Configure system-wide settings
+- ✅ Manage VIP accounts with custom features
+
+**Dashboard Access:** Full platform administration
+
+---
+
+### 2. Store Owner
+**Who:** Business owners subscribed to Mawared  
+**Capabilities:**
+- ✅ Add and manage employees
+- ✅ Set work locations and geofences
+- ✅ Configure store-specific settings (leave types, approval workflows)
+- ✅ Approve/reject leave requests
+- ✅ Approve/reject employee requests
+- ✅ View all employees' attendance, leaves, and requests
+- ✅ Generate reports for their store
+- ✅ Create tickets for HR Mawared Team support
+- ✅ Manage payroll for employees
+- ✅ View subscription and billing details
+
+**Dashboard Access:** Single-store management
+
+**Store Owner Can:**
+- Configure which leave types are available to employees
+- Set leave balances and accrual rules
+- Define approval workflows (who approves what)
+- Set overtime policies
+- Configure attendance rules (grace periods, auto clock-out)
+- Manage employee roles and permissions
+
+---
+
+### 3. HR Team (Mawared HR)
+**Who:** Mawared staff providing HR support to stores  
+**Capabilities:**
+- ✅ Manage multiple stores (assigned by Super Admin)
+- ✅ Process employee requests escalated to HR Team
+- ✅ Add employees on behalf of Store Owners
+- ✅ Provide consultations to Store Owners
+- ✅ View attendance and leave data for assigned stores
+- ✅ Generate cross-store reports
+- ✅ Configure features for Store Owners (based on their subscription)
+- ✅ Handle device change requests
+- ✅ Resolve disputes and tickets
+
+**Dashboard Access:** Multi-store management (assigned stores only)
+
+**HR Team Responsibilities:**
+- Process complex employee requests (loans, bonuses, housing allowances)
+- Provide HR consultations (included in subscription packages)
+- Assist with Saudi labor law compliance
+- Generate official documents and certificates
+- Handle employee disputes and grievances
+
+---
+
+### 4. Employee
+**Who:** Store staff using the mobile app  
+**Capabilities:**
+- ✅ Clock in/out with GPS verification
+- ✅ View own attendance history
+- ✅ Check leave balance
+- ✅ Submit leave requests
+- ✅ Submit various requests (salary certificate, experience letter, etc.)
+- ✅ View request status and history
+- ✅ View own payslips
+- ✅ Update profile and emergency contacts
+- ✅ Change device (with admin approval)
+
+**Dashboard Access:** Personal data only
+
+**Employee Cannot:**
+- View other employees' data
+- Clock in/out outside geofence
+- Use multiple devices simultaneously
+- Edit attendance records
+- Approve their own requests
