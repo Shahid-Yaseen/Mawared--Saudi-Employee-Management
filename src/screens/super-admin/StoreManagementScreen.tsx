@@ -34,16 +34,28 @@ export default function StoreManagementScreen({ navigation }: any) {
 
     const loadStores = async () => {
         try {
-            const { data, error } = await supabase
+            const { data: storesData, error } = await supabase
                 .from('stores')
-                .select(`
-          *,
-          profiles!inner(full_name, email)
-        `)
+                .select('*')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setStores(data || []);
+
+            const storesWithOwners = await Promise.all(
+                (storesData || []).map(async (store: any) => {
+                    if (store.owner_id) {
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('full_name, email')
+                            .eq('id', store.owner_id)
+                            .single();
+                        return { ...store, owner_profile: profile };
+                    }
+                    return { ...store, owner_profile: null };
+                })
+            );
+
+            setStores(storesWithOwners);
         } catch (error) {
             console.error('Error loading stores:', error);
         } finally {
@@ -76,7 +88,7 @@ export default function StoreManagementScreen({ navigation }: any) {
                     <View style={styles.storeInfo}>
                         <Text style={styles.storeName}>{item.store_name}</Text>
                         <Text style={styles.storeNumber}>{item.store_number}</Text>
-                        <Text style={styles.ownerName}>Owner: {item.profiles.full_name}</Text>
+                        <Text style={styles.ownerName}>Owner: {item.owner_profile?.full_name || 'Unknown'}</Text>
                     </View>
                     <Chip
                         mode="flat"
@@ -104,7 +116,7 @@ export default function StoreManagementScreen({ navigation }: any) {
                     )}
                     <View style={styles.detailRow}>
                         <Ionicons name="mail-outline" size={16} color={Colors.textSecondary} />
-                        <Text style={styles.detailText}>{item.profiles.email}</Text>
+                        <Text style={styles.detailText}>{item.owner_profile?.email || 'N/A'}</Text>
                     </View>
                 </View>
 

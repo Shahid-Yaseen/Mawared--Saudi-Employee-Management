@@ -604,6 +604,10 @@ app.use(
     changeOrigin: true,
     ws: true,
     logLevel: 'warn',
+    onProxyReq: (proxyReq) => {
+      proxyReq.removeHeader('origin');
+      proxyReq.removeHeader('referer');
+    },
     onError: (err, req, res) => {
       if (res.writeHead) {
         res.writeHead(502, { 'Content-Type': 'text/html' });
