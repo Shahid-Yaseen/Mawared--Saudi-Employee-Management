@@ -7,7 +7,7 @@ import {
     Switch,
     TouchableOpacity,
     useWindowDimensions,
-    Alert,
+    Platform,
 } from 'react-native';
 import { Card, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,21 +24,29 @@ export default function SettingsScreen({ navigation }: any) {
     const [emailAlerts, setEmailAlerts] = useState(true);
     const [autoApprove, setAutoApprove] = useState(false);
 
-    const handleLogout = () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Logout',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await signOut();
+    const handleLogout = async () => {
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to logout?');
+            if (confirmed) {
+                await signOut();
+            }
+        } else {
+            const { Alert } = require('react-native');
+            Alert.alert(
+                'Logout',
+                'Are you sure you want to logout?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Logout',
+                        style: 'destructive',
+                        onPress: async () => {
+                            await signOut();
+                        },
                     },
-                },
-            ]
-        );
+                ]
+            );
+        }
     };
 
     return (
