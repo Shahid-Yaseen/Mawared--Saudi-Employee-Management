@@ -1,10 +1,6 @@
 import { supabase } from './supabase';
 
-// In development, the API server runs on port 5001 (5000 is used by macOS Control Center)
-// When deployed on Replit, the external port is mapped to port 80/443
-const API_BASE = (process.env.EXPO_PUBLIC_ENV === 'production')
-  ? ''
-  : 'http://localhost:5001';
+const API_BASE = '';
 
 async function getAuthToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();

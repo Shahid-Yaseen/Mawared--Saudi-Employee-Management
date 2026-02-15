@@ -5,14 +5,8 @@ if (Platform.OS !== 'web') {
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
-
-console.log('Supabase check: URL=', supabaseUrl ? 'Set' : 'Missing', 'Key=', supabaseAnonKey ? 'Set' : 'Missing');
-
-if (supabaseUrl === 'https://placeholder.supabase.co') {
-    console.warn('⚠️ Supabase not configured. Using placeholder values. Add your credentials to .env file.');
-}
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://elpbamjdmljaaxzjcatx.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVscGJhbWpkbWxqYWF4empjYXR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4ODQyNjIsImV4cCI6MjA4NjQ2MDI2Mn0.sSGSOqHf7-SsXAZ3qyIvI9lFcgrklybodo_5T_jWRQU';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
