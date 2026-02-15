@@ -7,11 +7,13 @@ import {
     Switch,
     TouchableOpacity,
     useWindowDimensions,
+    Alert,
 } from 'react-native';
-import { Card, Divider } from 'react-native-paper';
+import { Card, Divider, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
+import { signOut } from '../../services/supabase';
 import SidebarLayout from '../../components/SidebarLayout';
 
 export default function SettingsScreen({ navigation }: any) {
@@ -21,6 +23,23 @@ export default function SettingsScreen({ navigation }: any) {
     const [notifications, setNotifications] = useState(true);
     const [emailAlerts, setEmailAlerts] = useState(true);
     const [autoApprove, setAutoApprove] = useState(false);
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Logout',
+            'Are you sure you want to logout?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await signOut();
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <SidebarLayout navigation={navigation} activeRoute="Settings">
@@ -232,6 +251,16 @@ export default function SettingsScreen({ navigation }: any) {
                         </View>
                     </Card.Content>
                 </Card>
+
+                <Button
+                    mode="outlined"
+                    onPress={handleLogout}
+                    style={[styles.logoutButton, { borderColor: theme.colors.error }]}
+                    textColor={theme.colors.error}
+                    icon="logout"
+                >
+                    Logout
+                </Button>
             </ScrollView>
         </SidebarLayout>
     );
@@ -284,5 +313,9 @@ const styles = StyleSheet.create({
     },
     divider: {
         marginVertical: Spacing.sm,
+    },
+    logoutButton: {
+        borderRadius: BorderRadius.md,
+        marginVertical: Spacing.lg,
     },
 });
