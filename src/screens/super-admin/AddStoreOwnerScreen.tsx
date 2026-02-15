@@ -18,11 +18,7 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [storeName, setStoreName] = useState('');
-    const [storeNameAr, setStoreNameAr] = useState('');
-    const [commercialRegistration, setCommercialRegistration] = useState('');
-    const [latitude, setLatitude] = useState('24.7136');
-    const [longitude, setLongitude] = useState('46.6753');
-    const [geofenceRadius, setGeofenceRadius] = useState('100');
+    const [storeNumber, setStoreNumber] = useState('');
     const [loading, setLoading] = useState(false);
 
     const validateEmail = (email: string) => {
@@ -51,11 +47,7 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                 email: email.trim(),
                 phone: phone.trim() || undefined,
                 storeName: storeName.trim(),
-                storeNameAr: storeNameAr.trim() || undefined,
-                commercialRegistration: commercialRegistration.trim() || undefined,
-                latitude: parseFloat(latitude) || 24.7136,
-                longitude: parseFloat(longitude) || 46.6753,
-                geofenceRadius: parseInt(geofenceRadius) || 100,
+                storeNumber: storeNumber.trim() || undefined,
             });
 
             const tempPassword = result.tempPassword || result.data?.tempPassword || 'Check email';
@@ -140,56 +132,12 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
                     />
 
                     <TextInput
-                        label="Store Name (Arabic)"
-                        value={storeNameAr}
-                        onChangeText={setStoreNameAr}
+                        label="Store Number"
+                        value={storeNumber}
+                        onChangeText={setStoreNumber}
                         mode="outlined"
                         style={styles.input}
-                        left={<TextInput.Icon icon="store" />}
-                    />
-
-                    <TextInput
-                        label="Commercial Registration"
-                        value={commercialRegistration}
-                        onChangeText={setCommercialRegistration}
-                        mode="outlined"
-                        style={styles.input}
-                        left={<TextInput.Icon icon="file-document" />}
-                    />
-                </Card.Content>
-            </Card>
-
-            <Card style={styles.card}>
-                <Card.Content>
-                    <Text style={styles.sectionTitle}>Location Settings</Text>
-
-                    <View style={styles.row}>
-                        <TextInput
-                            label="Latitude"
-                            value={latitude}
-                            onChangeText={setLatitude}
-                            mode="outlined"
-                            style={[styles.input, styles.halfInput]}
-                            keyboardType="numeric"
-                        />
-                        <TextInput
-                            label="Longitude"
-                            value={longitude}
-                            onChangeText={setLongitude}
-                            mode="outlined"
-                            style={[styles.input, styles.halfInput]}
-                            keyboardType="numeric"
-                        />
-                    </View>
-
-                    <TextInput
-                        label="Geofence Radius (meters)"
-                        value={geofenceRadius}
-                        onChangeText={setGeofenceRadius}
-                        mode="outlined"
-                        style={styles.input}
-                        keyboardType="numeric"
-                        left={<TextInput.Icon icon="map-marker-radius" />}
+                        left={<TextInput.Icon icon="numeric" />}
                     />
                 </Card.Content>
             </Card>

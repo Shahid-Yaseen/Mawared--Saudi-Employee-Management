@@ -34,11 +34,7 @@ export const adminApi = {
     fullName: string;
     phone?: string;
     storeName: string;
-    storeNameAr?: string;
-    commercialRegistration?: string;
-    latitude?: number;
-    longitude?: number;
-    geofenceRadius?: number;
+    storeNumber?: string;
   }) => apiCall('/api/admin/create-store-owner', {
     method: 'POST',
     body: JSON.stringify(params),

@@ -37,12 +37,11 @@ export default function ForceChangePasswordScreen({ route }: any) {
 
             if (updateError) throw updateError;
 
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({ must_change_password: false })
-                .eq('id', userId);
+            const { error: metaError } = await supabase.auth.updateUser({
+                data: { must_change_password: false },
+            });
 
-            if (profileError) throw profileError;
+            if (metaError) throw metaError;
 
             Alert.alert('Success', 'Password changed successfully');
         } catch (error: any) {

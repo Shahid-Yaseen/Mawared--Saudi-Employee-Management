@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const crypto = require('crypto');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -44,7 +46,7 @@ async function requireAdminAuth(req, res, next) {
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'super_admin') {
+    if (!profile || (profile.role !== 'super_admin' && profile.role !== 'admin')) {
       return res.status(403).json({ error: 'Insufficient permissions. Super admin access required.' });
     }
 
@@ -106,7 +108,7 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
       return res.status(500).json({ error: 'Supabase service role key not configured' });
     }
 
-    const { email, fullName, phone, storeName, storeNameAr, commercialRegistration, latitude, longitude, geofenceRadius } = req.body;
+    const { email, fullName, phone, storeName, storeNumber } = req.body;
 
     if (!email || !fullName || !storeName) {
       return res.status(400).json({ error: 'Email, full name, and store name are required' });
@@ -118,6 +120,7 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
       email,
       password: tempPassword,
       email_confirm: true,
+      user_metadata: { must_change_password: true },
     });
 
     if (authError) {
@@ -134,7 +137,6 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
         full_name: fullName,
         phone: phone || null,
         role: 'store_owner',
-        must_change_password: true,
       });
 
     if (profileError) {
@@ -146,11 +148,8 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
       .insert({
         owner_id: userId,
         store_name: storeName,
-        store_name_ar: storeNameAr || storeName,
-        commercial_registration: commercialRegistration || '',
-        latitude: latitude || 24.7136,
-        longitude: longitude || 46.6753,
-        geofence_radius: geofenceRadius || 100,
+        store_number: storeNumber || '',
+        phone: phone || null,
         status: 'active',
       })
       .select()
@@ -193,7 +192,6 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
           <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin: 20px 0;">
             <h3 style="color: #333; margin-top: 0;">Store Information</h3>
             <p style="margin: 8px 0;"><strong>Store Name:</strong> ${storeName}</p>
-            ${commercialRegistration ? `<p style="margin: 8px 0;"><strong>CR Number:</strong> ${commercialRegistration}</p>` : ''}
           </div>
           ` : ''}
         </div>
@@ -238,6 +236,7 @@ app.post('/api/admin/create-hr-member', requireAdminAuth, async (req, res) => {
       email,
       password: tempPassword,
       email_confirm: true,
+      user_metadata: { must_change_password: true },
     });
 
     if (authError) {
@@ -254,7 +253,6 @@ app.post('/api/admin/create-hr-member', requireAdminAuth, async (req, res) => {
         full_name: fullName,
         phone: phone || null,
         role: 'hr_team',
-        must_change_password: true,
       });
 
     if (profileError) {
@@ -332,7 +330,7 @@ app.post('/api/admin/update-user-role', requireAdminAuth, async (req, res) => {
     }
 
     const { userId, role } = req.body;
-    const validRoles = ['super_admin', 'store_owner', 'hr_team', 'employee'];
+    const validRoles = ['super_admin', 'admin', 'store_owner', 'hr_team', 'employee'];
 
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
@@ -386,16 +384,12 @@ app.post('/api/admin/reset-user-password', requireAdminAuth, async (req, res) =>
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       password: tempPassword,
+      user_metadata: { must_change_password: true },
     });
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-
-    await supabaseAdmin
-      .from('profiles')
-      .update({ must_change_password: true })
-      .eq('id', userId);
 
     if (email) {
       await sendBrevoEmail(
@@ -427,33 +421,53 @@ app.post('/api/admin/reset-user-password', requireAdminAuth, async (req, res) =>
   }
 });
 
+const PLANS_FILE = '/tmp/mawared_subscription_plans.json';
+
+function loadPlansFromFile() {
+  try {
+    if (fs.existsSync(PLANS_FILE)) {
+      return JSON.parse(fs.readFileSync(PLANS_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return [];
+}
+
+function savePlansToFile(plans) {
+  try {
+    fs.writeFileSync(PLANS_FILE, JSON.stringify(plans, null, 2));
+  } catch (e) {
+    console.error('Failed to save plans:', e);
+  }
+}
+
+app.get('/api/admin/subscription-plans', requireAdminAuth, async (req, res) => {
+  try {
+    const plans = loadPlansFromFile();
+    res.json({ success: true, plans });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/admin/subscription-plans', requireAdminAuth, async (req, res) => {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
     const { name, nameAr, priceMonthly, priceYearly, maxEmployees, features, hrConsultationHours } = req.body;
-
-    const { data, error } = await supabaseAdmin
-      .from('subscription_plans')
-      .insert({
-        name,
-        name_ar: nameAr || name,
-        price_monthly: priceMonthly,
-        price_yearly: priceYearly,
-        max_employees: maxEmployees,
-        features: features || [],
-        hr_consultation_hours: hrConsultationHours || 0,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    res.json({ success: true, plan: data });
+    const plans = loadPlansFromFile();
+    const newPlan = {
+      id: crypto.randomUUID(),
+      name,
+      name_ar: nameAr || name,
+      price_monthly: priceMonthly || 0,
+      price_yearly: priceYearly || 0,
+      max_employees: maxEmployees || 10,
+      features: features || [],
+      hr_consultation_hours: hrConsultationHours || 0,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    plans.push(newPlan);
+    savePlansToFile(plans);
+    res.json({ success: true, plan: newPlan });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -461,61 +475,53 @@ app.post('/api/admin/subscription-plans', requireAdminAuth, async (req, res) => 
 
 app.put('/api/admin/subscription-plans/:id', requireAdminAuth, async (req, res) => {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
     const { id } = req.params;
     const updates = req.body;
-
-    const updateData = {};
-    if (updates.name) updateData.name = updates.name;
-    if (updates.nameAr) updateData.name_ar = updates.nameAr;
-    if (updates.priceMonthly !== undefined) updateData.price_monthly = updates.priceMonthly;
-    if (updates.priceYearly !== undefined) updateData.price_yearly = updates.priceYearly;
-    if (updates.maxEmployees !== undefined) updateData.max_employees = updates.maxEmployees;
-    if (updates.features) updateData.features = updates.features;
-    if (updates.hrConsultationHours !== undefined) updateData.hr_consultation_hours = updates.hrConsultationHours;
-    if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
-
-    const { data, error } = await supabaseAdmin
-      .from('subscription_plans')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
+    const plans = loadPlansFromFile();
+    const index = plans.findIndex(p => p.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Plan not found' });
     }
-
-    res.json({ success: true, plan: data });
+    if (updates.name) plans[index].name = updates.name;
+    if (updates.nameAr) plans[index].name_ar = updates.nameAr;
+    if (updates.priceMonthly !== undefined) plans[index].price_monthly = updates.priceMonthly;
+    if (updates.priceYearly !== undefined) plans[index].price_yearly = updates.priceYearly;
+    if (updates.maxEmployees !== undefined) plans[index].max_employees = updates.maxEmployees;
+    if (updates.features) plans[index].features = updates.features;
+    if (updates.hrConsultationHours !== undefined) plans[index].hr_consultation_hours = updates.hrConsultationHours;
+    if (updates.isActive !== undefined) plans[index].is_active = updates.isActive;
+    savePlansToFile(plans);
+    res.json({ success: true, plan: plans[index] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+const SETTINGS_FILE = '/tmp/mawared_system_settings.json';
+
+function loadSettingsFromFile() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveSettingsToFile(settings) {
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+  } catch (e) {
+    console.error('Failed to save settings:', e);
+  }
+}
+
 app.post('/api/admin/save-system-settings', requireAdminAuth, async (req, res) => {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
     const { settings } = req.body;
-
-    for (const [key, value] of Object.entries(settings)) {
-      const { error } = await supabaseAdmin
-        .from('system_settings')
-        .upsert(
-          { key, value: JSON.stringify(value), updated_at: new Date().toISOString() },
-          { onConflict: 'key' }
-        );
-
-      if (error) {
-        console.error(`Error saving setting ${key}:`, error);
-      }
-    }
-
+    const existing = loadSettingsFromFile();
+    const merged = { ...existing, ...settings };
+    saveSettingsToFile(merged);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -524,27 +530,7 @@ app.post('/api/admin/save-system-settings', requireAdminAuth, async (req, res) =
 
 app.get('/api/admin/system-settings', requireAdminAuth, async (req, res) => {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('system_settings')
-      .select('*');
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    const settings = {};
-    (data || []).forEach(row => {
-      try {
-        settings[row.key] = JSON.parse(row.value);
-      } catch {
-        settings[row.key] = row.value;
-      }
-    });
-
+    const settings = loadSettingsFromFile();
     res.json({ success: true, settings });
   } catch (error) {
     res.status(500).json({ error: error.message });

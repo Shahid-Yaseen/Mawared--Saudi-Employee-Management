@@ -90,29 +90,30 @@ function Main() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, must_change_password')
+        .select('role')
         .eq('id', uid)
         .single();
 
       setUserId(uid);
 
-      if (profile?.must_change_password) {
+      const mustChange = user?.user_metadata?.must_change_password === true;
+      if (mustChange) {
         setMustChangePassword(true);
         setIsAuthenticated(true);
-        setUserRole(profile.role || 'employee');
+        setUserRole(profile?.role || 'employee');
         return;
       }
 
       setMustChangePassword(false);
 
       if (profile?.role) {
-        setUserRole(profile.role);
+        setUserRole(profile.role === 'admin' ? 'admin' : profile.role);
       } else if (userEmail.includes('owner@')) {
         setUserRole('store_owner');
       } else if (userEmail.includes('hr@')) {
         setUserRole('hr_team');
       } else if (userEmail.includes('admin@')) {
-        setUserRole('super_admin');
+        setUserRole('admin');
       } else {
         setUserRole('employee');
       }
@@ -123,7 +124,7 @@ function Main() {
       setUserId(uid);
 
       if (userEmail.includes('admin@')) {
-        setUserRole('super_admin');
+        setUserRole('admin');
       } else if (userEmail.includes('owner@')) {
         setUserRole('store_owner');
       } else if (userEmail.includes('hr@')) {
