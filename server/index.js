@@ -2,12 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
-// Load environment variables from .env file
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const app = express();
 app.use(cors());
@@ -22,8 +20,8 @@ const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'Mawared';
 
 const supabaseAdmin = SUPABASE_SERVICE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
   : null;
 
 async function requireAdminAuth(req, res, next) {
@@ -34,7 +32,7 @@ async function requireAdminAuth(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
-
+    
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Server not configured' });
     }
@@ -59,39 +57,6 @@ async function requireAdminAuth(req, res, next) {
     next();
   } catch (err) {
     console.error('Auth middleware error:', err);
-    return res.status(500).json({ error: 'Authentication failed' });
-  }
-}
-
-async function requireStoreOwnerOrHRAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'store_owner' && profile.role !== 'hr_team' && profile.role !== 'super_admin' && profile.role !== 'admin')) {
-      return res.status(403).json({ error: 'Insufficient permissions.' });
-    }
-
-    req.user = user;
-    req.profile = profile;
-    next();
-  } catch (err) {
-    console.error('Store auth middleware error:', err);
     return res.status(500).json({ error: 'Authentication failed' });
   }
 }
@@ -185,7 +150,7 @@ app.post('/api/admin/create-store-owner', requireAdminAuth, async (req, res) => 
       .insert({
         owner_id: userId,
         store_name: storeName,
-        store_number: storeNumber || `STORE-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        store_number: storeNumber || '',
         phone: phone || null,
         status: 'active',
       })
@@ -410,189 +375,6 @@ app.post('/api/admin/toggle-user-status', requireAdminAuth, async (req, res) => 
   }
 });
 
-app.get('/api/admin/recent-activity', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { data: activity, error } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, role, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) throw error;
-
-    res.json({ success: true, activity });
-  } catch (error) {
-    console.error('Get activity error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const [storesCount, activeStoresCount, usersCount, employeesCount, pendingRequestsCount] = await Promise.all([
-      supabaseAdmin.from('stores').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('stores').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('employees').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('leave_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    ]);
-
-    res.json({
-      success: true,
-      stats: {
-        totalStores: storesCount.count || 0,
-        activeStores: activeStoresCount.count || 0,
-        totalUsers: usersCount.count || 0,
-        totalEmployees: employeesCount.count || 0,
-        activeSubscriptions: activeStoresCount.count || 0,
-        pendingRequests: pendingRequestsCount.count || 0,
-      }
-    });
-  } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/stores', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { data: stores, error: storesError } = await supabaseAdmin
-      .from('stores')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (storesError) throw storesError;
-
-    // Fetch owner profiles for all stores
-    const ownerIds = [...new Set(stores.map(s => s.owner_id).filter(Boolean))];
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', ownerIds);
-
-    if (profilesError) throw profilesError;
-
-    const profileMap = profiles.reduce((acc, p) => {
-      acc[p.id] = p;
-      return acc;
-    }, {});
-
-    const storesWithProfiles = stores.map(store => ({
-      ...store,
-      owner_profile: profileMap[store.owner_id] || null
-    }));
-
-    res.json({ success: true, stores: storesWithProfiles });
-  } catch (error) {
-    console.error('Get stores error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/admin/update-store', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { storeId, storeName, storeNumber, phone, status } = req.body;
-
-    if (!storeId) {
-      return res.status(400).json({ error: 'Store ID is required' });
-    }
-
-    const updateData = {};
-    if (storeName) updateData.store_name = storeName;
-    if (storeNumber !== undefined) updateData.store_number = storeNumber;
-    if (phone !== undefined) updateData.phone = phone;
-    if (status) updateData.status = status;
-
-    const { data: store, error } = await supabaseAdmin
-      .from('stores')
-      .update(updateData)
-      .eq('id', storeId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    res.json({ success: true, store });
-  } catch (error) {
-    console.error('Update store error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/stores/:id', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { id } = req.params;
-
-    const { data: store, error: storeError } = await supabaseAdmin
-      .from('stores')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (storeError) throw storeError;
-
-    if (store.owner_id) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('id', store.owner_id)
-        .single();
-      store.owner_profile = profile;
-    }
-
-    res.json({ success: true, store });
-  } catch (error) {
-    console.error('Get store details error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/admin/toggle-store-status', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { storeId, status } = req.body;
-
-    if (!storeId || !status) {
-      return res.status(400).json({ error: 'Store ID and status are required' });
-    }
-
-    const { error } = await supabaseAdmin
-      .from('stores')
-      .update({ status })
-      .eq('id', storeId);
-
-    if (error) throw error;
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Toggle store status error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 app.post('/api/admin/reset-user-password', requireAdminAuth, async (req, res) => {
   try {
     if (!supabaseAdmin) {
@@ -648,7 +430,7 @@ function loadPlansFromFile() {
     if (fs.existsSync(PLANS_FILE)) {
       return JSON.parse(fs.readFileSync(PLANS_FILE, 'utf8'));
     }
-  } catch (e) { }
+  } catch (e) {}
   return [];
 }
 
@@ -724,7 +506,7 @@ function loadSettingsFromFile() {
     if (fs.existsSync(SETTINGS_FILE)) {
       return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
     }
-  } catch (e) { }
+  } catch (e) {}
   return {};
 }
 
@@ -753,268 +535,6 @@ app.get('/api/admin/system-settings', requireAdminAuth, async (req, res) => {
     const settings = loadSettingsFromFile();
     res.json({ success: true, settings });
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/store/update-employee', requireStoreOwnerOrHRAuth, async (req, res) => {
-  try {
-    const { employeeId, fullName, phone, department, position, salary, hireDate } = req.body;
-
-    // First update profile if needed
-    if (fullName || phone) {
-      const { data: employee } = await supabaseAdmin
-        .from('employees')
-        .select('user_id')
-        .eq('id', employeeId)
-        .single();
-
-      if (employee) {
-        await supabaseAdmin
-          .from('profiles')
-          .update({ full_name: fullName, phone })
-          .eq('id', employee.user_id);
-      }
-    }
-
-    // Update employee record
-    const { error } = await supabaseAdmin
-      .from('employees')
-      .update({
-        department,
-        position,
-        salary: salary ? parseFloat(salary) : undefined,
-        hire_date: hireDate
-      })
-      .eq('id', employeeId);
-
-    if (error) throw error;
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/store/toggle-employee-status', requireStoreOwnerOrHRAuth, async (req, res) => {
-  try {
-    const { employeeId, status } = req.body;
-    const { error } = await supabaseAdmin
-      .from('employees')
-      .update({ status })
-      .eq('id', employeeId);
-    if (error) throw error;
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/store/reset-employee-password', requireStoreOwnerOrHRAuth, async (req, res) => {
-  try {
-    const { employeeId } = req.body;
-    const { data: employee } = await supabaseAdmin
-      .from('employees')
-      .select('user_id, profiles(email, full_name)')
-      .eq('id', employeeId)
-      .single();
-
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
-
-    const tempPassword = generateTempPassword();
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-      employee.user_id,
-      { password: tempPassword, user_metadata: { must_change_password: true } }
-    );
-
-    if (authError) throw authError;
-
-    // Send email with new password
-    await sendBrevoEmail(
-      { email: employee.profiles.email, name: employee.profiles.full_name },
-      'Password Reset - Mawared',
-      `<p>Your password has been reset. Your temporary password is: <b>${tempPassword}</b></p>`
-    );
-
-    res.json({ success: true, tempPassword });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/store/create-employee', requireStoreOwnerOrHRAuth, async (req, res) => {
-  console.log('SERVER: create-employee started:', req.body.email, 'Role:', req.body.role);
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const {
-      email,
-      password,
-      fullName,
-      phone,
-      role,
-      employeeNumber,
-      department,
-      position,
-      salary,
-      hireDate,
-      storeId
-    } = req.body;
-
-    if (!email || !password || !fullName || !employeeNumber || !storeId) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const targetRole = role === 'hr' ? 'employee' : (role || 'employee');
-    const isHR = role === 'hr';
-
-    // Step 1: Create user in Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: fullName, role: targetRole },
-    });
-
-    if (authError) {
-      return res.status(400).json({ error: authError.message });
-    }
-
-    const userId = authData.user.id;
-
-    // Step 2: Create profile
-    await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: userId,
-        email,
-        full_name: fullName,
-        phone: phone || null,
-        role: targetRole,
-      });
-
-    // Step 3: Create employee record
-    const { error: employeeError } = await supabaseAdmin
-      .from('employees')
-      .insert({
-        user_id: userId,
-        store_id: storeId,
-        employee_number: employeeNumber,
-        department: department || null,
-        position: isHR ? (position ? `HR - ${position}` : 'HR Staff') : (position || null),
-        salary: salary ? parseFloat(salary) : 0,
-        hire_date: hireDate || new Date().toISOString().split('T')[0],
-        status: 'active',
-      });
-
-    if (employeeError) {
-      console.error('Employee record creation error:', employeeError);
-      // We don't rollback auth user to keep things simple, but in prod you might want to.
-      return res.status(400).json({ error: 'User created but failed to save employee details: ' + employeeError.message });
-    }
-
-    res.json({ success: true, userId });
-  } catch (error) {
-    console.error('Create employee error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/store/employees/:id', requireStoreOwnerOrHRAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data: employee, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !employee) {
-      return res.status(404).json({ error: 'Employee not found' });
-    }
-
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', employee.user_id)
-      .single();
-
-    employee.profiles = profile || null;
-
-    res.json({ success: true, employee });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/store/employees', requireStoreOwnerOrHRAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase service role key not configured' });
-    }
-
-    const { storeId } = req.query;
-    let targetStoreId = storeId;
-
-    // If no storeId provided, find the one this user is associated with
-    if (!targetStoreId) {
-      // First try as store owner
-      const { data: ownedStore } = await supabaseAdmin
-        .from('stores')
-        .select('id')
-        .eq('owner_id', req.user.id)
-        .single();
-
-      if (ownedStore) {
-        targetStoreId = ownedStore.id;
-      } else {
-        // Then try as employee/HR
-        const { data: empRecord } = await supabaseAdmin
-          .from('employees')
-          .select('store_id')
-          .eq('user_id', req.user.id)
-          .single();
-
-        if (empRecord) {
-          targetStoreId = empRecord.store_id;
-        }
-      }
-    }
-
-    if (!targetStoreId) {
-      return res.json({ success: true, employees: [] });
-    }
-
-    const { data: employees, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('store_id', targetStoreId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Fetch profiles for these employees manually to avoid join relationship issues
-    if (employees && employees.length > 0) {
-      const userIds = employees.map(emp => emp.user_id).filter(Boolean);
-      const { data: profiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, email, phone')
-        .in('id', userIds);
-
-      const profileMap = (profiles || []).reduce((acc, p) => {
-        acc[p.id] = p;
-        return acc;
-      }, {});
-
-      employees.forEach(emp => {
-        emp.profiles = profileMap[emp.user_id] || null;
-      });
-    }
-
-    res.json({ success: true, employees });
-  } catch (error) {
-    console.error('Get employees error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1078,31 +598,46 @@ app.get('/api/health', (req, res) => {
 });
 
 const METRO_PORT = 8081;
+const DIST_PATH = path.join(__dirname, '..', 'dist');
 
-app.use(
-  '/',
-  createProxyMiddleware({
-    target: `http://localhost:${METRO_PORT}`,
-    changeOrigin: true,
-    ws: true,
-    logLevel: 'warn',
-    onProxyReq: (proxyReq) => {
-      proxyReq.removeHeader('origin');
-      proxyReq.removeHeader('referer');
+if (IS_PRODUCTION) {
+  app.use(express.static(DIST_PATH, {
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'no-cache');
     },
-    onError: (err, req, res) => {
-      if (res.writeHead) {
-        res.writeHead(502, { 'Content-Type': 'text/html' });
-        res.end('<h1>Mawared - Starting up...</h1><p>The application is loading. Please refresh in a moment.</p>');
-      }
-    },
-  })
-);
+  }));
 
-const PORT = process.env.PORT || 5001;
+  app.use((req, res) => {
+    res.sendFile(path.join(DIST_PATH, 'index.html'));
+  });
+} else {
+  const { createProxyMiddleware } = require('http-proxy-middleware');
+  app.use(
+    '/',
+    createProxyMiddleware({
+      target: `http://localhost:${METRO_PORT}`,
+      changeOrigin: true,
+      ws: true,
+      logLevel: 'warn',
+      onProxyReq: (proxyReq) => {
+        proxyReq.removeHeader('origin');
+        proxyReq.removeHeader('referer');
+      },
+      onError: (err, req, res) => {
+        if (res.writeHead) {
+          res.writeHead(502, { 'Content-Type': 'text/html' });
+          res.end('<h1>Mawared - Starting up...</h1><p>The application is loading. Please refresh in a moment.</p>');
+        }
+      },
+    })
+  );
+}
+
+const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Mawared API server running on port ${PORT}`);
-  console.log(`Proxying to Metro on port ${METRO_PORT}`);
+  console.log(`Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  if (!IS_PRODUCTION) console.log(`Proxying to Metro on port ${METRO_PORT}`);
   console.log(`Supabase Admin: ${supabaseAdmin ? 'configured' : 'NOT configured'}`);
   console.log(`Brevo Email: ${BREVO_API_KEY ? 'configured' : 'NOT configured'}`);
 });
