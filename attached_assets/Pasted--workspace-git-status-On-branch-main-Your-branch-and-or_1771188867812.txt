@@ -1,0 +1,47 @@
+~/workspace$ git status
+On branch main
+Your branch and 'origin/main' have diverged,
+and have 1 and 1 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Changes to be committed:
+    deleted:    .env
+    modified:   .replit
+    modified:   App.tsx
+    new file:   check_admin.js
+    new file:   check_all_stores_admin.js
+    new file:   check_recent_stores.js
+    modified:   package-lock.json
+    modified:   package.json
+    modified:   src/navigation/index.tsx
+    modified:   src/screens/auth/ForceChangePasswordScreen.tsx
+    modified:   src/screens/hr-team/EmployeeDirectoryScreen.tsx
+    modified:   src/screens/hr-team/HRDashboardScreen.tsx
+    modified:   src/screens/hr-team/HRProfileScreen.tsx
+    modified:   src/screens/hr-team/LeaveApprovalsScreen.tsx
+    modified:   src/screens/hr-team/PayrollOverviewScreen.tsx
+    modified:   src/screens/hr-team/ReportsScreen.tsx
+    modified:   src/screens/store-owner/AddEmployeeScreen.tsx
+    new file:   src/screens/store-owner/EditEmployeeScreen.tsx
+    new file:   src/screens/store-owner/EmployeeDetailsScreen.tsx
+    modified:   src/screens/store-owner/EmployeesScreen.tsx
+    modified:   src/screens/super-admin/AddStoreOwnerScreen.tsx
+    modified:   src/screens/super-admin/AdminDashboardScreen.tsx
+    modified:   src/screens/super-admin/AnalyticsScreen.tsx
+    new file:   src/screens/super-admin/EditStoreScreen.tsx
+    new file:   src/screens/super-admin/StoreDetailsScreen.tsx
+    modified:   src/screens/super-admin/StoreManagementScreen.tsx
+    modified:   src/screens/super-admin/SubscriptionPlansScreen.tsx
+    modified:   src/screens/super-admin/SystemSettingsScreen.tsx
+    modified:   src/screens/super-admin/UserManagementScreen.tsx
+    modified:   src/services/adminApi.ts
+    modified:   src/services/supabase.ts
+    new file:   test_login.js
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+    both modified:   server/index.js
