@@ -1,0 +1,29 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL = 'https://elpbamjdmljaaxzjcatx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVscGJhbWpkbWxqYWF4empjYXR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4ODQyNjIsImV4cCI6MjA4NjQ2MDI2Mn0.sSGSOqHf7-SsXAZ3qyIvI9lFcgrklybodo_5T_jWRQU';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function checkStore() {
+    const { data: owner } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', 'owner@mawared.com')
+        .single();
+
+    if (owner) {
+        const { data: store, error } = await supabase
+            .from('stores')
+            .select('*')
+            .eq('owner_id', owner.id);
+
+        console.log('Owner ID:', owner.id);
+        console.log('Stores found:', store ? store.length : 0);
+        if (store && store.length > 0) {
+            console.log('Store record:', store[0]);
+        }
+    }
+}
+
+checkStore();
