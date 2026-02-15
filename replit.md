@@ -4,6 +4,14 @@
 Mawared is a React Native / Expo employee management application with web support. It uses Supabase as the backend service for authentication and data management. The app supports multiple user roles: employees, HR team, store owners, and super admins.
 
 ## Recent Changes
+- 2026-02-15: Fixed critical production and API issues
+  - Fixed index.js entry point (was importing TestApp placeholder instead of real App)
+  - Added hardcoded Supabase fallback values for production bundle reliability
+  - Simplified API_BASE to empty string for same-origin requests
+  - Added 15+ missing API routes to Express server: stores CRUD, stats, recent-activity, employee management
+  - Split auth middleware: requireAdminAuth (admin/super_admin only) vs requireStoreAuth (also store_owner/hr_team)
+  - Configured production deployment with build command and NODE_ENV=production
+  - Rebuilt production bundle (3.26 MB with full Supabase integration)
 - 2026-02-15: Implemented complete Super Admin functionality
   - Express backend server on port 5000 proxying to Expo Metro on 8081
   - Admin API routes for user creation, Brevo email integration, role management

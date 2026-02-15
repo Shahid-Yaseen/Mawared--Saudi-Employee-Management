@@ -24,41 +24,74 @@ const supabaseAdmin = SUPABASE_SERVICE_KEY
     })
   : null;
 
-async function requireAdminAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+function requireAuth(allowedRoles) {
+  return async (req, res, next) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
-    const token = authHeader.split(' ')[1];
-    
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Server not configured' });
-    }
+      const token = authHeader.split(' ')[1];
 
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+      if (!supabaseAdmin) {
+        return res.status(500).json({ error: 'Server not configured' });
+      }
 
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
+      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+      if (error || !user) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('role, store_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile || !allowedRoles.includes(profile.role)) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+
+      req.authUser = user;
+      req.authProfile = profile;
+      next();
+    } catch (err) {
+      console.error('Auth middleware error:', err);
+      return res.status(500).json({ error: 'Authentication failed' });
+    }
+  };
+}
+
+const requireAdminAuth = (req, res, next) =>
+  requireAuth(['super_admin', 'admin'])(req, res, next);
+
+const requireStoreAuth = (req, res, next) =>
+  requireAuth(['super_admin', 'admin', 'store_owner', 'hr_team'])(req, res, next);
+
+async function validateStoreAccess(req, storeId) {
+  if (!storeId) return true;
+  const role = req.authProfile?.role;
+  if (role === 'super_admin' || role === 'admin') return true;
+  if (role === 'store_owner') {
+    const { data: store } = await supabaseAdmin
+      .from('stores')
+      .select('id')
+      .eq('id', storeId)
+      .eq('owner_id', req.authUser.id)
       .single();
-
-    if (!profile || (profile.role !== 'super_admin' && profile.role !== 'admin')) {
-      return res.status(403).json({ error: 'Insufficient permissions. Super admin access required.' });
-    }
-
-    req.adminUser = user;
-    req.adminProfile = profile;
-    next();
-  } catch (err) {
-    console.error('Auth middleware error:', err);
-    return res.status(500).json({ error: 'Authentication failed' });
+    return !!store;
   }
+  if (role === 'hr_team') {
+    const { data: assignment } = await supabaseAdmin
+      .from('hr_team_assignments')
+      .select('id')
+      .eq('hr_member_id', req.authUser.id)
+      .eq('store_id', storeId)
+      .single();
+    return !!assignment;
+  }
+  return false;
 }
 
 function generateTempPassword() {
@@ -584,6 +617,462 @@ app.delete('/api/admin/unassign-hr-from-store', requireAdminAuth, async (req, re
     }
 
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/stores', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+    const { data: stores, error } = await supabaseAdmin
+      .from('stores')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const ownerIds = [...new Set(stores.map(s => s.owner_id).filter(Boolean))];
+    let ownerProfiles = [];
+    if (ownerIds.length > 0) {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, email, phone')
+        .in('id', ownerIds);
+      ownerProfiles = data || [];
+    }
+
+    const storesWithOwners = stores.map(store => {
+      const owner = ownerProfiles.find(p => p.id === store.owner_id);
+      return { ...store, owner };
+    });
+
+    res.json({ success: true, stores: storesWithOwners });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/stores/:id', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+    const { data: store, error } = await supabaseAdmin
+      .from('stores')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    let owner = null;
+    if (store.owner_id) {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, email, phone')
+        .eq('id', store.owner_id)
+        .single();
+      owner = data;
+    }
+
+    res.json({ success: true, store: { ...store, owner } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/toggle-store-status', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+    const { storeId, status } = req.body;
+    const { error } = await supabaseAdmin
+      .from('stores')
+      .update({ status })
+      .eq('id', storeId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/update-store', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+    const { storeId, storeName, storeNumber, phone, status } = req.body;
+    const updates = {};
+    if (storeName !== undefined) updates.store_name = storeName;
+    if (storeNumber !== undefined) updates.store_number = storeNumber;
+    if (phone !== undefined) updates.phone = phone;
+    if (status !== undefined) updates.status = status;
+
+    const { error } = await supabaseAdmin
+      .from('stores')
+      .update(updates)
+      .eq('id', storeId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const [storesResult, profilesResult] = await Promise.all([
+      supabaseAdmin.from('stores').select('id, status', { count: 'exact' }),
+      supabaseAdmin.from('profiles').select('id, role', { count: 'exact' }),
+    ]);
+
+    const stores = storesResult.data || [];
+    const profiles = profilesResult.data || [];
+
+    const totalStores = stores.length;
+    const activeStores = stores.filter(s => s.status === 'active').length;
+    const totalUsers = profiles.length;
+    const storeOwners = profiles.filter(p => p.role === 'store_owner').length;
+    const hrMembers = profiles.filter(p => p.role === 'hr_team').length;
+    const employees = profiles.filter(p => p.role === 'employee').length;
+
+    res.json({
+      success: true,
+      stats: {
+        totalStores,
+        activeStores,
+        inactiveStores: totalStores - activeStores,
+        totalUsers,
+        storeOwners,
+        hrMembers,
+        employees,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/recent-activity', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { data: recentUsers } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email, role, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const { data: recentStores } = await supabaseAdmin
+      .from('stores')
+      .select('id, store_name, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const activities = [];
+
+    (recentUsers || []).forEach(u => {
+      activities.push({
+        id: u.id,
+        type: 'user_created',
+        description: `User ${u.full_name || u.email} (${u.role}) was created`,
+        timestamp: u.created_at,
+      });
+    });
+
+    (recentStores || []).forEach(s => {
+      activities.push({
+        id: s.id,
+        type: 'store_created',
+        description: `Store "${s.store_name}" was created`,
+        timestamp: s.created_at,
+      });
+    });
+
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    res.json({ success: true, activities: activities.slice(0, 20) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/store/create-employee', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { email, fullName, phone, employeeNumber, department, position, salary, hireDate, role, storeId } = req.body;
+
+    if (!email || !fullName || !storeId) {
+      return res.status(400).json({ error: 'Email, full name, and store ID are required' });
+    }
+
+    const hasAccess = await validateStoreAccess(req, storeId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this store' });
+    }
+
+    const tempPassword = generateTempPassword();
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { must_change_password: true },
+    });
+
+    if (authError) {
+      return res.status(400).json({ error: authError.message });
+    }
+
+    const userId = authData.user.id;
+
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: userId,
+        email,
+        full_name: fullName,
+        phone: phone || null,
+        role: role || 'employee',
+        employee_number: employeeNumber || null,
+        department: department || null,
+        position: position || null,
+        store_id: storeId,
+      });
+
+    if (profileError) {
+      console.error('Employee profile error:', profileError);
+    }
+
+    await sendBrevoEmail(
+      { email, name: fullName },
+      'Welcome to Mawared - Employee Account Created',
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #D4A843;">Mawared</h1>
+        <h2>Welcome, ${fullName}!</h2>
+        <p>Your employee account has been created.</p>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Temporary Password:</strong> <code>${tempPassword}</code></p>
+        </div>
+        <p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">
+          <strong>Important:</strong> Change your password on first login.
+        </p>
+      </div>`
+    );
+
+    res.json({ success: true, userId, tempPassword });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/store/employees', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const role = req.authProfile?.role;
+    let storeId = req.query.storeId;
+
+    if (role === 'store_owner' && !storeId) {
+      const { data: stores } = await supabaseAdmin
+        .from('stores')
+        .select('id')
+        .eq('owner_id', req.authUser.id);
+      const storeIds = (stores || []).map(s => s.id);
+      if (storeIds.length === 0) {
+        return res.json({ success: true, employees: [] });
+      }
+      const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('role', 'employee')
+        .in('store_id', storeIds)
+        .order('created_at', { ascending: false });
+      if (error) return res.status(400).json({ error: error.message });
+      return res.json({ success: true, employees: data || [] });
+    }
+
+    if (storeId) {
+      const hasAccess = await validateStoreAccess(req, storeId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'You do not have access to this store' });
+      }
+    }
+
+    let query = supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('role', 'employee')
+      .order('created_at', { ascending: false });
+
+    if (storeId) {
+      query = query.eq('store_id', storeId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ success: true, employees: data || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/store/employees/:id', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    res.json({ success: true, employee: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/store/update-employee', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { employeeId, fullName, phone, department, position, salary, hireDate } = req.body;
+    const updates = {};
+    if (fullName !== undefined) updates.full_name = fullName;
+    if (phone !== undefined) updates.phone = phone;
+    if (department !== undefined) updates.department = department;
+    if (position !== undefined) updates.position = position;
+    if (salary !== undefined) updates.salary = salary;
+    if (hireDate !== undefined) updates.hire_date = hireDate;
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update(updates)
+      .eq('id', employeeId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/store/toggle-employee-status', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { employeeId, status } = req.body;
+    const banned = status === 'inactive';
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(employeeId, {
+      ban_duration: banned ? '876000h' : 'none',
+    });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/store/reset-employee-password', requireStoreAuth, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    const { employeeId } = req.body;
+    const tempPassword = generateTempPassword();
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(employeeId, {
+      password: tempPassword,
+      user_metadata: { must_change_password: true },
+    });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', employeeId)
+      .single();
+
+    if (profile?.email) {
+      await sendBrevoEmail(
+        { email: profile.email, name: profile.full_name || profile.email },
+        'Mawared - Password Reset',
+        `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #D4A843;">Mawared</h1>
+          <h2>Password Reset</h2>
+          <p>Your password has been reset by an administrator.</p>
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>New Temporary Password:</strong> <code>${tempPassword}</code></p>
+          </div>
+          <p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">
+            Change your password on next login.
+          </p>
+        </div>`
+      );
+    }
+
+    res.json({ success: true, tempPassword });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/subscription-plans-public', async (req, res) => {
+  try {
+    const plans = loadPlansFromFile();
+    res.json({ success: true, plans: plans.filter(p => p.is_active) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -43,7 +43,7 @@ waitForPort = 5000
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["bash", "-c", "npx expo export --platform web"]
+build = ["bash", "-c", "npx expo export --platform web --clear"]
 publicDir = "dist"
 run = ["node", "server/index.js"]
 
