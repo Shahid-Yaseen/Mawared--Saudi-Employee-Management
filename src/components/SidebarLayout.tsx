@@ -24,7 +24,22 @@ export default function SidebarLayout({ children, navigation, activeRoute, role 
     const isLargeScreen = width >= 768;
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to logout?');
+            if (confirmed) {
+                await supabase.auth.signOut();
+            }
+        } else {
+            const { Alert } = require('react-native');
+            Alert.alert(
+                'Logout',
+                'Are you sure you want to logout?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Logout', style: 'destructive', onPress: () => supabase.auth.signOut() },
+                ]
+            );
+        }
     };
 
     const toggleTheme = () => {
@@ -66,7 +81,7 @@ export default function SidebarLayout({ children, navigation, activeRoute, role 
                     { name: 'Employees', icon: 'account-group', route: 'Employees' },
                     { name: 'Approvals', icon: 'check-circle', route: 'Approvals' },
                     { name: 'Settings', icon: 'cog', route: 'Settings' },
-                    { name: 'Privacy', icon: 'shield-lock', route: 'Privacy' },
+                    { name: 'Profile', icon: 'account', route: 'Profile' },
                 ];
         }
     };

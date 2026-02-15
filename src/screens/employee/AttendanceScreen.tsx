@@ -17,7 +17,7 @@ import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/them
 import { useTheme } from '../../store/ThemeContext';
 import { calculateDistance, validateGeofence, formatDistance } from '../../utils/helpers';
 import { Employee, Store, AttendanceRecord } from '../../types';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function AttendanceScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -370,13 +370,7 @@ export default function AttendanceScreen({ navigation }: any) {
         </ScrollView>
     );
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Attendance" role="employee">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({

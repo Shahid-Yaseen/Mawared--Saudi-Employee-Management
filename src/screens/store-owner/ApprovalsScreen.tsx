@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function ApprovalsScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -153,7 +153,6 @@ export default function ApprovalsScreen({ navigation }: any) {
     };
 
     return (
-        <SidebarLayout navigation={navigation} activeRoute="Approvals">
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 {isLargeScreen && (
                     <View style={{ padding: Spacing.lg, paddingBottom: 0 }}>
@@ -312,7 +311,6 @@ export default function ApprovalsScreen({ navigation }: any) {
                     )}
                 </ScrollView>
             </View>
-        </SidebarLayout>
     );
 }
 

@@ -42,6 +42,7 @@ import SubscriptionPlansScreen from '../screens/super-admin/SubscriptionPlansScr
 
 import { AuthStackParamList, EmployeeTabParamList, StoreOwnerTabParamList } from '../types';
 import { useTheme } from '../store/ThemeContext';
+import withSidebarLayout from '../components/withSidebarLayout';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const ChangePasswordStack = createNativeStackNavigator();
@@ -121,7 +122,7 @@ export function EmployeeNavigator() {
         >
             <EmployeeTab.Screen
                 name="Home"
-                component={EmployeeHomeScreen}
+                component={withSidebarLayout(EmployeeHomeScreen, 'employee', 'Home')}
                 options={{
                     title: t('common.appName'),
                     tabBarLabel: 'Home',
@@ -132,7 +133,7 @@ export function EmployeeNavigator() {
             />
             <EmployeeTab.Screen
                 name="Attendance"
-                component={AttendanceScreen}
+                component={withSidebarLayout(AttendanceScreen, 'employee', 'Attendance')}
                 options={{
                     title: t('attendance.title'),
                     tabBarLabel: 'Attendance',
@@ -143,7 +144,7 @@ export function EmployeeNavigator() {
             />
             <EmployeeTab.Screen
                 name="Leave"
-                component={LeaveScreen}
+                component={withSidebarLayout(LeaveScreen, 'employee', 'Leave')}
                 options={{
                     title: t('leave.title'),
                     tabBarLabel: 'Leave',
@@ -154,7 +155,7 @@ export function EmployeeNavigator() {
             />
             <EmployeeTab.Screen
                 name="Requests"
-                component={RequestsScreen}
+                component={withSidebarLayout(RequestsScreen, 'employee', 'Requests')}
                 options={{
                     title: t('requests.title'),
                     tabBarLabel: 'Requests',
@@ -165,7 +166,7 @@ export function EmployeeNavigator() {
             />
             <EmployeeTab.Screen
                 name="Payroll"
-                component={PayrollScreen}
+                component={withSidebarLayout(PayrollScreen, 'employee', 'Payroll')}
                 options={{
                     title: t('payroll.title'),
                     tabBarLabel: 'Payroll',
@@ -176,7 +177,7 @@ export function EmployeeNavigator() {
             />
             <EmployeeTab.Screen
                 name="Profile"
-                component={ProfileScreen}
+                component={withSidebarLayout(ProfileScreen, 'employee', 'Profile')}
                 options={{
                     title: t('profile.title'),
                     tabBarLabel: 'Profile',
@@ -192,20 +193,24 @@ export function EmployeeNavigator() {
 function StoreOwnerTabs() {
     const { t } = useTranslation();
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
+    const isLargeScreen = width >= 768;
 
     return (
         <StoreOwnerTab.Navigator
             screenOptions={{
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
-                tabBarStyle: {
-                    backgroundColor: theme.colors.surface,
-                    borderTopWidth: 1,
-                    borderTopColor: theme.colors.divider,
-                    paddingBottom: 5,
-                    paddingTop: 5,
-                    height: 60,
-                },
+                tabBarStyle: isLargeScreen
+                    ? { display: 'none' }
+                    : {
+                        backgroundColor: theme.colors.surface,
+                        borderTopWidth: 1,
+                        borderTopColor: theme.colors.divider,
+                        paddingBottom: 5,
+                        paddingTop: 5,
+                        height: 60,
+                    },
                 headerStyle: {
                     backgroundColor: theme.colors.primary,
                 },
@@ -213,11 +218,12 @@ function StoreOwnerTabs() {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
+                headerShown: !isLargeScreen,
             }}
         >
             <StoreOwnerTab.Screen
                 name="Dashboard"
-                component={StoreOwnerDashboardScreen}
+                component={withSidebarLayout(StoreOwnerDashboardScreen, 'store_owner', 'Dashboard')}
                 options={{
                     title: 'Dashboard',
                     tabBarLabel: 'Home',
@@ -228,7 +234,7 @@ function StoreOwnerTabs() {
             />
             <StoreOwnerTab.Screen
                 name="Employees"
-                component={EmployeesScreen}
+                component={withSidebarLayout(EmployeesScreen, 'store_owner', 'Employees')}
                 options={{
                     title: 'Employees',
                     tabBarLabel: 'Employees',
@@ -239,7 +245,7 @@ function StoreOwnerTabs() {
             />
             <StoreOwnerTab.Screen
                 name="Approvals"
-                component={ApprovalsScreen}
+                component={withSidebarLayout(ApprovalsScreen, 'store_owner', 'Approvals')}
                 options={{
                     title: 'Approvals',
                     tabBarLabel: 'Approvals',
@@ -250,7 +256,7 @@ function StoreOwnerTabs() {
             />
             <StoreOwnerTab.Screen
                 name="Settings"
-                component={SettingsScreen}
+                component={withSidebarLayout(SettingsScreen, 'store_owner', 'Settings')}
                 options={{
                     title: 'Settings',
                     tabBarLabel: 'Settings',
@@ -261,7 +267,7 @@ function StoreOwnerTabs() {
             />
             <StoreOwnerTab.Screen
                 name="Profile"
-                component={ProfileScreen}
+                component={withSidebarLayout(ProfileScreen, 'store_owner', 'Profile')}
                 options={{
                     title: 'Profile',
                     tabBarLabel: 'Profile',
@@ -275,7 +281,6 @@ function StoreOwnerTabs() {
 }
 
 export function StoreOwnerNavigator() {
-    const { t } = useTranslation();
     const { theme } = useTheme();
     const { width } = useWindowDimensions();
     const isLargeScreen = width >= 768;
@@ -288,54 +293,50 @@ export function StoreOwnerNavigator() {
                     backgroundColor: theme.colors.primary,
                 },
                 headerTintColor: theme.colors.onPrimary || '#FFFFFF',
+                headerTitleStyle: {
+                    fontWeight: '600',
+                },
             }}
         >
-            {!isLargeScreen ? (
-                <>
-                    <StoreOwnerStack.Screen
-                        name="MainTabs"
-                        component={StoreOwnerTabs}
-                        options={{ headerShown: false }}
-                    />
-                    <StoreOwnerStack.Screen name="Settings" component={SettingsScreen} />
-                    <StoreOwnerStack.Screen name="Privacy" component={PrivacyScreen} />
-                    <StoreOwnerStack.Screen name="AddEmployee" component={AddEmployeeScreen} />
-                </>
-            ) : (
-                <>
-                    <StoreOwnerStack.Screen name="Dashboard" component={StoreOwnerDashboardScreen} />
-                    <StoreOwnerStack.Screen name="Employees" component={EmployeesScreen} />
-                    <StoreOwnerStack.Screen name="Approvals" component={ApprovalsScreen} />
-                    <StoreOwnerStack.Screen name="Profile" component={ProfileScreen} />
-                    <StoreOwnerStack.Screen name="Settings" component={SettingsScreen} />
-                    <StoreOwnerStack.Screen name="Privacy" component={PrivacyScreen} />
-                    <StoreOwnerStack.Screen
-                        name="AddEmployee"
-                        component={AddEmployeeScreen}
-                        options={{ headerShown: true, title: 'Add Employee' }}
-                    />
-                </>
-            )}
+            <StoreOwnerStack.Screen
+                name="MainTabs"
+                component={StoreOwnerTabs}
+                options={{ headerShown: false }}
+            />
+            <StoreOwnerStack.Screen
+                name="Privacy"
+                component={withSidebarLayout(PrivacyScreen, 'store_owner', 'Privacy')}
+                options={{ title: 'Privacy & Security' }}
+            />
+            <StoreOwnerStack.Screen
+                name="AddEmployee"
+                component={withSidebarLayout(AddEmployeeScreen, 'store_owner', 'Employees')}
+                options={{ title: 'Add Employee' }}
+            />
         </StoreOwnerStack.Navigator>
     );
 }
 
 export function HRNavigator() {
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
+    const isLargeScreen = width >= 768;
 
     return (
         <HRTab.Navigator
             screenOptions={{
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
-                tabBarStyle: {
-                    backgroundColor: theme.colors.surface,
-                    borderTopWidth: 1,
-                    borderTopColor: theme.colors.divider,
-                    paddingBottom: 5,
-                    paddingTop: 5,
-                    height: 60,
-                },
+                tabBarStyle: isLargeScreen
+                    ? { display: 'none' }
+                    : {
+                        backgroundColor: theme.colors.surface,
+                        borderTopWidth: 1,
+                        borderTopColor: theme.colors.divider,
+                        paddingBottom: 5,
+                        paddingTop: 5,
+                        height: 60,
+                    },
                 headerStyle: {
                     backgroundColor: theme.colors.primary,
                 },
@@ -343,11 +344,12 @@ export function HRNavigator() {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
+                headerShown: !isLargeScreen,
             }}
         >
             <HRTab.Screen
                 name="HRDashboard"
-                component={HRDashboardScreen}
+                component={withSidebarLayout(HRDashboardScreen, 'hr_team', 'HRDashboard')}
                 options={{
                     title: 'HR Dashboard',
                     tabBarLabel: 'Dashboard',
@@ -358,7 +360,7 @@ export function HRNavigator() {
             />
             <HRTab.Screen
                 name="EmployeeDirectory"
-                component={EmployeeDirectoryScreen}
+                component={withSidebarLayout(EmployeeDirectoryScreen, 'hr_team', 'EmployeeDirectory')}
                 options={{
                     title: 'Employee Directory',
                     tabBarLabel: 'Employees',
@@ -369,7 +371,7 @@ export function HRNavigator() {
             />
             <HRTab.Screen
                 name="LeaveApprovals"
-                component={LeaveApprovalsScreen}
+                component={withSidebarLayout(LeaveApprovalsScreen, 'hr_team', 'LeaveApprovals')}
                 options={{
                     title: 'Leave Approvals',
                     tabBarLabel: 'Leaves',
@@ -380,7 +382,7 @@ export function HRNavigator() {
             />
             <HRTab.Screen
                 name="PayrollOverview"
-                component={PayrollOverviewScreen}
+                component={withSidebarLayout(PayrollOverviewScreen, 'hr_team', 'PayrollOverview')}
                 options={{
                     title: 'Payroll Overview',
                     tabBarLabel: 'Payroll',
@@ -391,7 +393,7 @@ export function HRNavigator() {
             />
             <HRTab.Screen
                 name="Reports"
-                component={ReportsScreen}
+                component={withSidebarLayout(ReportsScreen, 'hr_team', 'Reports')}
                 options={{
                     title: 'Reports',
                     tabBarLabel: 'Reports',
@@ -402,7 +404,7 @@ export function HRNavigator() {
             />
             <HRTab.Screen
                 name="HRProfile"
-                component={HRProfileScreen}
+                component={withSidebarLayout(HRProfileScreen, 'hr_team', 'HRProfile')}
                 options={{
                     title: 'Profile',
                     tabBarLabel: 'Profile',
@@ -417,20 +419,24 @@ export function HRNavigator() {
 
 function SuperAdminTabs() {
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
+    const isLargeScreen = width >= 768;
 
     return (
         <SuperAdminTab.Navigator
             screenOptions={{
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
-                tabBarStyle: {
-                    backgroundColor: theme.colors.surface,
-                    borderTopWidth: 1,
-                    borderTopColor: theme.colors.divider,
-                    paddingBottom: 5,
-                    paddingTop: 5,
-                    height: 60,
-                },
+                tabBarStyle: isLargeScreen
+                    ? { display: 'none' }
+                    : {
+                        backgroundColor: theme.colors.surface,
+                        borderTopWidth: 1,
+                        borderTopColor: theme.colors.divider,
+                        paddingBottom: 5,
+                        paddingTop: 5,
+                        height: 60,
+                    },
                 headerStyle: {
                     backgroundColor: theme.colors.primary,
                 },
@@ -438,11 +444,12 @@ function SuperAdminTabs() {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
+                headerShown: !isLargeScreen,
             }}
         >
             <SuperAdminTab.Screen
                 name="AdminDashboard"
-                component={AdminDashboardScreen}
+                component={withSidebarLayout(AdminDashboardScreen, 'super_admin', 'AdminDashboard')}
                 options={{
                     title: 'Admin Dashboard',
                     tabBarLabel: 'Dashboard',
@@ -453,7 +460,7 @@ function SuperAdminTabs() {
             />
             <SuperAdminTab.Screen
                 name="StoreManagement"
-                component={StoreManagementScreen}
+                component={withSidebarLayout(StoreManagementScreen, 'super_admin', 'StoreManagement')}
                 options={{
                     title: 'Stores',
                     tabBarLabel: 'Stores',
@@ -464,7 +471,7 @@ function SuperAdminTabs() {
             />
             <SuperAdminTab.Screen
                 name="UserManagement"
-                component={UserManagementScreen}
+                component={withSidebarLayout(UserManagementScreen, 'super_admin', 'UserManagement')}
                 options={{
                     title: 'Users',
                     tabBarLabel: 'Users',
@@ -475,7 +482,7 @@ function SuperAdminTabs() {
             />
             <SuperAdminTab.Screen
                 name="SystemSettings"
-                component={SystemSettingsScreen}
+                component={withSidebarLayout(SystemSettingsScreen, 'super_admin', 'SystemSettings')}
                 options={{
                     title: 'Settings',
                     tabBarLabel: 'Settings',
@@ -486,7 +493,7 @@ function SuperAdminTabs() {
             />
             <SuperAdminTab.Screen
                 name="Analytics"
-                component={AnalyticsScreen}
+                component={withSidebarLayout(AnalyticsScreen, 'super_admin', 'Analytics')}
                 options={{
                     title: 'Analytics',
                     tabBarLabel: 'Analytics',
@@ -501,10 +508,13 @@ function SuperAdminTabs() {
 
 export function SuperAdminNavigator() {
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
+    const isLargeScreen = width >= 768;
 
     return (
         <SuperAdminStack.Navigator
             screenOptions={{
+                headerShown: !isLargeScreen,
                 headerStyle: {
                     backgroundColor: theme.colors.primary,
                 },
@@ -521,12 +531,12 @@ export function SuperAdminNavigator() {
             />
             <SuperAdminStack.Screen
                 name="AddStoreOwner"
-                component={AddStoreOwnerScreen}
+                component={withSidebarLayout(AddStoreOwnerScreen, 'super_admin', 'StoreManagement')}
                 options={{ title: 'Add Store Owner' }}
             />
             <SuperAdminStack.Screen
                 name="Subscriptions"
-                component={SubscriptionPlansScreen}
+                component={withSidebarLayout(SubscriptionPlansScreen, 'super_admin', 'SystemSettings')}
                 options={{ title: 'Subscription Plans' }}
             />
         </SuperAdminStack.Navigator>

@@ -15,7 +15,7 @@ import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import { Employee, AttendanceRecord, LeaveBalance, Profile } from '../../types';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 interface EmployeeWithProfile extends Employee {
     profiles: Pick<Profile, 'full_name' | 'avatar_url'>;
@@ -730,13 +730,7 @@ export default function EmployeeHomeScreen({ navigation }: any) {
 
     const content = isLargeScreen ? renderDesktopLayout() : renderMobileLayout();
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Home" role="employee">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({

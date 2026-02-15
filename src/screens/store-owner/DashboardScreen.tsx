@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function StoreOwnerDashboardScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -608,11 +608,7 @@ export default function StoreOwnerDashboardScreen({ navigation }: any) {
         </View>
     );
 
-    return (
-        <SidebarLayout navigation={navigation} activeRoute="Dashboard">
-            {isLargeScreen ? renderDesktopLayout() : renderMobileLayout()}
-        </SidebarLayout>
-    );
+    return isLargeScreen ? renderDesktopLayout() : renderMobileLayout();
 }
 
 const styles = StyleSheet.create({

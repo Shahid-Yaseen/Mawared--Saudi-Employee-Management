@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase, signOut } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function ProfileScreen({ navigation }: any) {
     const { t, i18n } = useTranslation();
@@ -270,13 +270,7 @@ export default function ProfileScreen({ navigation }: any) {
         </ScrollView>
     );
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Profile">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({

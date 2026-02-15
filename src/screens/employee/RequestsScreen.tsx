@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function RequestsScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -147,13 +147,7 @@ export default function RequestsScreen({ navigation }: any) {
         </View>
     );
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Requests">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({

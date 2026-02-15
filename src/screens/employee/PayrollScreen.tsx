@@ -13,7 +13,7 @@ import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import { formatCurrency } from '../../utils/helpers';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function PayrollScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -199,13 +199,7 @@ export default function PayrollScreen({ navigation }: any) {
         </ScrollView>
     );
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Payroll">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({

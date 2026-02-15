@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import { signOut } from '../../services/supabase';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function SettingsScreen({ navigation }: any) {
     const { theme, isDark, setMode } = useTheme();
@@ -50,7 +50,6 @@ export default function SettingsScreen({ navigation }: any) {
     };
 
     return (
-        <SidebarLayout navigation={navigation} activeRoute="Settings">
             <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.content}>
                 {isLargeScreen && <Text style={[styles.title, { color: theme.colors.text }]}>Settings</Text>}
 
@@ -270,7 +269,6 @@ export default function SettingsScreen({ navigation }: any) {
                     Logout
                 </Button>
             </ScrollView>
-        </SidebarLayout>
     );
 }
 

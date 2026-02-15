@@ -12,7 +12,7 @@ import { Card, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function PrivacyScreen({ navigation }: any) {
     const { theme } = useTheme();
@@ -24,7 +24,6 @@ export default function PrivacyScreen({ navigation }: any) {
     const [twoFactor, setTwoFactor] = useState(false);
 
     return (
-        <SidebarLayout navigation={navigation} activeRoute="Privacy">
             <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.content}>
                 {isLargeScreen && <Text style={[styles.title, { color: theme.colors.text }]}>Privacy & Security</Text>}
 
@@ -258,7 +257,6 @@ export default function PrivacyScreen({ navigation }: any) {
                     </Card.Content>
                 </Card>
             </ScrollView>
-        </SidebarLayout>
     );
 }
 

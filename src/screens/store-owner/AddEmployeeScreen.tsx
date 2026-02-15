@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function AddEmployeeScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -249,7 +249,6 @@ export default function AddEmployeeScreen({ navigation }: any) {
     };
 
     return (
-        <SidebarLayout navigation={navigation} activeRoute="Employees">
             <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <View style={[styles.content]}>
                     {isLargeScreen && <Text style={[styles.title, { color: theme.colors.text }]}>Add New {role === 'hr' ? 'HR' : 'Employee'}</Text>}
@@ -447,7 +446,6 @@ export default function AddEmployeeScreen({ navigation }: any) {
                     </Button>
                 </View>
             </ScrollView>
-        </SidebarLayout>
     );
 }
 

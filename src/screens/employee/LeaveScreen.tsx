@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
-import SidebarLayout from '../../components/SidebarLayout';
+
 
 export default function LeaveScreen({ navigation }: any) {
     const { t } = useTranslation();
@@ -210,13 +210,7 @@ export default function LeaveScreen({ navigation }: any) {
         </View>
     );
 
-    return isLargeScreen ? (
-        <SidebarLayout navigation={navigation} activeRoute="Leave">
-            {content}
-        </SidebarLayout>
-    ) : (
-        content
-    );
+    return content;
 }
 
 const styles = StyleSheet.create({
