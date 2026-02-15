@@ -6,12 +6,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-// Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ForceChangePasswordScreen from '../screens/auth/ForceChangePasswordScreen';
 
-// Employee Screens
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
 import AttendanceScreen from '../screens/employee/AttendanceScreen';
 import LeaveScreen from '../screens/employee/LeaveScreen';
@@ -19,7 +18,6 @@ import RequestsScreen from '../screens/employee/RequestsScreen';
 import PayrollScreen from '../screens/employee/PayrollScreen';
 import ProfileScreen from '../screens/employee/ProfileScreen';
 
-// Store Owner Screens
 import StoreOwnerDashboardScreen from '../screens/store-owner/DashboardScreen';
 import EmployeesScreen from '../screens/store-owner/EmployeesScreen';
 import ApprovalsScreen from '../screens/store-owner/ApprovalsScreen';
@@ -27,7 +25,6 @@ import AddEmployeeScreen from '../screens/store-owner/AddEmployeeScreen';
 import SettingsScreen from '../screens/store-owner/SettingsScreen';
 import PrivacyScreen from '../screens/store-owner/PrivacyScreen';
 
-// HR Team Screens
 import HRDashboardScreen from '../screens/hr-team/HRDashboardScreen';
 import EmployeeDirectoryScreen from '../screens/hr-team/EmployeeDirectoryScreen';
 import LeaveApprovalsScreen from '../screens/hr-team/LeaveApprovalsScreen';
@@ -35,24 +32,26 @@ import PayrollOverviewScreen from '../screens/hr-team/PayrollOverviewScreen';
 import ReportsScreen from '../screens/hr-team/ReportsScreen';
 import HRProfileScreen from '../screens/hr-team/HRProfileScreen';
 
-// Super Admin Screens
 import AdminDashboardScreen from '../screens/super-admin/AdminDashboardScreen';
 import StoreManagementScreen from '../screens/super-admin/StoreManagementScreen';
 import UserManagementScreen from '../screens/super-admin/UserManagementScreen';
 import SystemSettingsScreen from '../screens/super-admin/SystemSettingsScreen';
 import AnalyticsScreen from '../screens/super-admin/AnalyticsScreen';
+import AddStoreOwnerScreen from '../screens/super-admin/AddStoreOwnerScreen';
+import SubscriptionPlansScreen from '../screens/super-admin/SubscriptionPlansScreen';
 
 import { AuthStackParamList, EmployeeTabParamList, StoreOwnerTabParamList } from '../types';
 import { useTheme } from '../store/ThemeContext';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const ChangePasswordStack = createNativeStackNavigator();
 const EmployeeTab = createBottomTabNavigator<EmployeeTabParamList>();
 const StoreOwnerTab = createBottomTabNavigator<StoreOwnerTabParamList>();
 const StoreOwnerStack = createNativeStackNavigator();
 const HRTab = createBottomTabNavigator();
 const SuperAdminTab = createBottomTabNavigator();
+const SuperAdminStack = createNativeStackNavigator();
 
-// Auth Navigator
 export function AuthNavigator() {
     return (
         <AuthStack.Navigator
@@ -67,7 +66,28 @@ export function AuthNavigator() {
     );
 }
 
-// Employee Tab Navigator
+export function ForceChangePasswordNavigator({ userId }: { userId: string }) {
+    const { theme } = useTheme();
+
+    return (
+        <ChangePasswordStack.Navigator
+            screenOptions={{
+                headerShown: true,
+                headerStyle: { backgroundColor: theme.colors.primary },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: '600' },
+            }}
+        >
+            <ChangePasswordStack.Screen
+                name="ForceChangePassword"
+                component={ForceChangePasswordScreen}
+                initialParams={{ userId }}
+                options={{ title: 'Change Password', headerLeft: () => null }}
+            />
+        </ChangePasswordStack.Navigator>
+    );
+}
+
 export function EmployeeNavigator() {
     const { t } = useTranslation();
     const { theme } = useTheme();
@@ -80,7 +100,7 @@ export function EmployeeNavigator() {
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
                 tabBarStyle: isLargeScreen
-                    ? { display: 'none' } // Hide tab bar on large screens
+                    ? { display: 'none' }
                     : {
                         backgroundColor: theme.colors.surface,
                         borderTopWidth: 1,
@@ -96,7 +116,7 @@ export function EmployeeNavigator() {
                 headerTitleStyle: {
                     fontWeight: '600',
                 },
-                headerShown: !isLargeScreen, // Hide header on large screens (sidebar has its own header)
+                headerShown: !isLargeScreen,
             }}
         >
             <EmployeeTab.Screen
@@ -169,7 +189,6 @@ export function EmployeeNavigator() {
     );
 }
 
-// Store Owner Tab Navigator (For Mobile)
 function StoreOwnerTabs() {
     const { t } = useTranslation();
     const { theme } = useTheme();
@@ -255,7 +274,6 @@ function StoreOwnerTabs() {
     );
 }
 
-// Responsive Store Owner Navigator
 export function StoreOwnerNavigator() {
     const { t } = useTranslation();
     const { theme } = useTheme();
@@ -273,7 +291,6 @@ export function StoreOwnerNavigator() {
             }}
         >
             {!isLargeScreen ? (
-                // Mobile Layout: Tabs as root
                 <>
                     <StoreOwnerStack.Screen
                         name="MainTabs"
@@ -285,39 +302,17 @@ export function StoreOwnerNavigator() {
                     <StoreOwnerStack.Screen name="AddEmployee" component={AddEmployeeScreen} />
                 </>
             ) : (
-                // Desktop Layout: Sidebar-aware individual screens
                 <>
-                    <StoreOwnerStack.Screen
-                        name="Dashboard"
-                        component={StoreOwnerDashboardScreen}
-                    />
-                    <StoreOwnerStack.Screen
-                        name="Employees"
-                        component={EmployeesScreen}
-                    />
-                    <StoreOwnerStack.Screen
-                        name="Approvals"
-                        component={ApprovalsScreen}
-                    />
-                    <StoreOwnerStack.Screen
-                        name="Profile"
-                        component={ProfileScreen}
-                    />
-                    <StoreOwnerStack.Screen
-                        name="Settings"
-                        component={SettingsScreen}
-                    />
-                    <StoreOwnerStack.Screen
-                        name="Privacy"
-                        component={PrivacyScreen}
-                    />
+                    <StoreOwnerStack.Screen name="Dashboard" component={StoreOwnerDashboardScreen} />
+                    <StoreOwnerStack.Screen name="Employees" component={EmployeesScreen} />
+                    <StoreOwnerStack.Screen name="Approvals" component={ApprovalsScreen} />
+                    <StoreOwnerStack.Screen name="Profile" component={ProfileScreen} />
+                    <StoreOwnerStack.Screen name="Settings" component={SettingsScreen} />
+                    <StoreOwnerStack.Screen name="Privacy" component={PrivacyScreen} />
                     <StoreOwnerStack.Screen
                         name="AddEmployee"
                         component={AddEmployeeScreen}
-                        options={{
-                            headerShown: true,
-                            title: 'Add Employee',
-                        }}
+                        options={{ headerShown: true, title: 'Add Employee' }}
                     />
                 </>
             )}
@@ -325,7 +320,6 @@ export function StoreOwnerNavigator() {
     );
 }
 
-// HR Team Navigator
 export function HRNavigator() {
     const { theme } = useTheme();
 
@@ -421,8 +415,7 @@ export function HRNavigator() {
     );
 }
 
-// Super Admin Navigator
-export function SuperAdminNavigator() {
+function SuperAdminTabs() {
     const { theme } = useTheme();
 
     return (
@@ -462,7 +455,7 @@ export function SuperAdminNavigator() {
                 name="StoreManagement"
                 component={StoreManagementScreen}
                 options={{
-                    title: 'Store Management',
+                    title: 'Stores',
                     tabBarLabel: 'Stores',
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name="store" size={size} color={color} />
@@ -473,7 +466,7 @@ export function SuperAdminNavigator() {
                 name="UserManagement"
                 component={UserManagementScreen}
                 options={{
-                    title: 'User Management',
+                    title: 'Users',
                     tabBarLabel: 'Users',
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name="account-group" size={size} color={color} />
@@ -484,7 +477,7 @@ export function SuperAdminNavigator() {
                 name="SystemSettings"
                 component={SystemSettingsScreen}
                 options={{
-                    title: 'System Settings',
+                    title: 'Settings',
                     tabBarLabel: 'Settings',
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name="cog" size={size} color={color} />
@@ -503,5 +496,39 @@ export function SuperAdminNavigator() {
                 }}
             />
         </SuperAdminTab.Navigator>
+    );
+}
+
+export function SuperAdminNavigator() {
+    const { theme } = useTheme();
+
+    return (
+        <SuperAdminStack.Navigator
+            screenOptions={{
+                headerStyle: {
+                    backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: {
+                    fontWeight: '600',
+                },
+            }}
+        >
+            <SuperAdminStack.Screen
+                name="AdminTabs"
+                component={SuperAdminTabs}
+                options={{ headerShown: false }}
+            />
+            <SuperAdminStack.Screen
+                name="AddStoreOwner"
+                component={AddStoreOwnerScreen}
+                options={{ title: 'Add Store Owner' }}
+            />
+            <SuperAdminStack.Screen
+                name="Subscriptions"
+                component={SubscriptionPlansScreen}
+                options={{ title: 'Subscription Plans' }}
+            />
+        </SuperAdminStack.Navigator>
     );
 }

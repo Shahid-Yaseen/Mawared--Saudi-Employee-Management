@@ -10,8 +10,8 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5001
-externalPort = 3001
+localPort = 8081
+externalPort = 8081
 
 [workflows]
 runButton = "Project"
@@ -29,15 +29,16 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd /home/runner/workspace && BROWSER=none npx expo start --web --port 5000"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash -c \"npx expo start --web --port 8081 & sleep 5 && node server/index.js\""
+waitForPort = 5000
+
 [deployment]
-deploymentTarget = "static"
-build = ["npx", "expo", "export", "--platform", "web"]
+deploymentTarget = "autoscale"
+build = ["bash", "-c", "npx expo export --platform web"]
 publicDir = "dist"
+run = ["node", "server/index.js"]

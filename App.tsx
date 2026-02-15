@@ -10,11 +10,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from './src/services/supabase';
 import { Colors } from './src/constants/theme';
 
-// Initialize i18n
 import './src/locales/i18n';
 
-// Import navigators
-import { AuthNavigator, EmployeeNavigator, StoreOwnerNavigator, HRNavigator, SuperAdminNavigator } from './src/navigation';
+import {
+  AuthNavigator,
+  EmployeeNavigator,
+  StoreOwnerNavigator,
+  HRNavigator,
+  SuperAdminNavigator,
+  ForceChangePasswordNavigator,
+} from './src/navigation';
 
 import { ThemeProvider, useTheme } from './src/store/ThemeContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -26,19 +31,25 @@ function Main() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     checkUser();
 
-    // Listen for auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+          await loadUserProfile(session?.user?.id || '');
+          return;
+        }
         if (session?.user) {
           await loadUserProfile(session.user.id);
         } else {
           setIsAuthenticated(false);
           setUserRole(null);
+          setMustChangePassword(false);
+          setUserId(null);
         }
       }
     );
@@ -72,39 +83,55 @@ function Main() {
     }
   };
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (uid: string) => {
     try {
-      // Get current user email first for fallback
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email || '';
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
-        .eq('id', userId)
+        .select('role, must_change_password')
+        .eq('id', uid)
         .single();
 
-      // If profile exists, use it. Otherwise fallback to email-based role.
+      setUserId(uid);
+
+      if (profile?.must_change_password) {
+        setMustChangePassword(true);
+        setIsAuthenticated(true);
+        setUserRole(profile.role || 'employee');
+        return;
+      }
+
+      setMustChangePassword(false);
+
       if (profile?.role) {
         setUserRole(profile.role);
       } else if (userEmail.includes('owner@')) {
         setUserRole('store_owner');
-      } else if (userEmail.includes('hr@') || userEmail.includes('admin@')) {
-        setUserRole('store_owner'); // For testing purposes, admins/hr with fallback email get owner layout or we can set 'hr' if we had a dedicated HR role/navigator
+      } else if (userEmail.includes('hr@')) {
+        setUserRole('hr_team');
+      } else if (userEmail.includes('admin@')) {
+        setUserRole('super_admin');
       } else {
         setUserRole('employee');
       }
       setIsAuthenticated(true);
     } catch (error) {
-      // On error, check email for fallback
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email || '';
+      setUserId(uid);
 
-      if (userEmail.includes('owner@') || userEmail.includes('admin@')) {
+      if (userEmail.includes('admin@')) {
+        setUserRole('super_admin');
+      } else if (userEmail.includes('owner@')) {
         setUserRole('store_owner');
+      } else if (userEmail.includes('hr@')) {
+        setUserRole('hr_team');
       } else {
         setUserRole('employee');
       }
+      setMustChangePassword(false);
       setIsAuthenticated(true);
     }
   };
@@ -118,21 +145,34 @@ function Main() {
     );
   }
 
+  const renderNavigator = () => {
+    if (!isAuthenticated) {
+      return <AuthNavigator />;
+    }
+
+    if (mustChangePassword && userId) {
+      return <ForceChangePasswordNavigator userId={userId} />;
+    }
+
+    switch (userRole) {
+      case 'store_owner':
+        return <StoreOwnerNavigator />;
+      case 'hr_team':
+      case 'hr':
+        return <HRNavigator />;
+      case 'super_admin':
+      case 'admin':
+        return <SuperAdminNavigator />;
+      default:
+        return <EmployeeNavigator />;
+    }
+  };
+
   return (
     <ErrorBoundary>
       <PaperProvider theme={theme}>
         <NavigationContainer theme={theme as any}>
-          {!isAuthenticated ? (
-            <AuthNavigator />
-          ) : userRole === 'store_owner' ? (
-            <StoreOwnerNavigator />
-          ) : userRole === 'hr' ? (
-            <HRNavigator />
-          ) : userRole === 'admin' ? (
-            <SuperAdminNavigator />
-          ) : (
-            <EmployeeNavigator />
-          )}
+          {renderNavigator()}
         </NavigationContainer>
       </PaperProvider>
     </ErrorBoundary>
@@ -165,26 +205,5 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 20,
     fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  errorHint: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
 });
