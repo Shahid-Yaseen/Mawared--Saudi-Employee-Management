@@ -69,8 +69,6 @@ function requireAuth(allowedRoles) {
 const requireAdminAuth = (req, res, next) =>
   requireAuth(['super_admin', 'admin'])(req, res, next);
 
-const requireStoreAuth = (req, res, next) =>
-  requireAuth(['super_admin', 'admin', 'store_owner', 'hr_team'])(req, res, next);
 
 async function validateStoreAccess(req, storeId) {
   if (!storeId) return true;
@@ -852,6 +850,15 @@ app.put('/api/admin/subscription-plans/:id', requireAdminAuth, async (req, res) 
   }
 });
 
+app.get('/api/admin/subscription-plans-public', async (req, res) => {
+  try {
+    const plans = loadPlansFromFile();
+    res.json({ success: true, plans: plans.filter(p => p.is_active) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const SETTINGS_FILE = '/tmp/mawared_system_settings.json';
 
 function loadSettingsFromFile() {
@@ -942,8 +949,6 @@ app.delete('/api/admin/unassign-hr-from-store', requireAdminAuth, async (req, re
   }
 });
 
-<<<<<<< HEAD
-=======
 // =============================================
 // ADMIN STATS ENDPOINT
 // =============================================
@@ -1036,45 +1041,19 @@ app.get('/api/admin/recent-activity', requireAdminAuth, async (req, res) => {
 // =============================================
 // STORES CRUD ENDPOINTS
 // =============================================
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 app.get('/api/admin/stores', requireAdminAuth, async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
-<<<<<<< HEAD
-=======
 
     // Get all stores
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     const { data: stores, error } = await supabaseAdmin
       .from('stores')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-<<<<<<< HEAD
-      return res.status(400).json({ error: error.message });
-    }
-
-    const ownerIds = [...new Set(stores.map(s => s.owner_id).filter(Boolean))];
-    let ownerProfiles = [];
-    if (ownerIds.length > 0) {
-      const { data } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, email, phone')
-        .in('id', ownerIds);
-      ownerProfiles = data || [];
-    }
-
-    const storesWithOwners = stores.map(store => {
-      const owner = ownerProfiles.find(p => p.id === store.owner_id);
-      return { ...store, owner };
-    });
-
-    res.json({ success: true, stores: storesWithOwners });
-  } catch (error) {
-=======
       console.error('Fetch stores error:', error);
       return res.status(400).json({ error: error.message });
     }
@@ -1098,7 +1077,6 @@ app.get('/api/admin/stores', requireAdminAuth, async (req, res) => {
     res.json({ success: true, stores: enrichedStores });
   } catch (error) {
     console.error('Get stores error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
@@ -1108,30 +1086,6 @@ app.get('/api/admin/stores/:id', requireAdminAuth, async (req, res) => {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
-<<<<<<< HEAD
-    const { data: store, error } = await supabaseAdmin
-      .from('stores')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) {
-      return res.status(404).json({ error: 'Store not found' });
-    }
-
-    let owner = null;
-    if (store.owner_id) {
-      const { data } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, email, phone')
-        .eq('id', store.owner_id)
-        .single();
-      owner = data;
-    }
-
-    res.json({ success: true, store: { ...store, owner } });
-  } catch (error) {
-=======
 
     const { id } = req.params;
 
@@ -1168,7 +1122,6 @@ app.get('/api/admin/stores/:id', requireAdminAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get store details error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
@@ -1178,28 +1131,18 @@ app.post('/api/admin/toggle-store-status', requireAdminAuth, async (req, res) =>
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
-<<<<<<< HEAD
-    const { storeId, status } = req.body;
-    const { error } = await supabaseAdmin
-      .from('stores')
-      .update({ status })
-=======
 
     const { storeId, status } = req.body;
 
     const { error } = await supabaseAdmin
       .from('stores')
       .update({ status, updated_at: new Date().toISOString() })
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
       .eq('id', storeId);
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-<<<<<<< HEAD
-=======
 
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1211,15 +1154,10 @@ app.post('/api/admin/update-store', requireAdminAuth, async (req, res) => {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
-<<<<<<< HEAD
-    const { storeId, storeName, storeNumber, phone, status } = req.body;
-    const updates = {};
-=======
 
     const { storeId, storeName, storeNumber, phone, status } = req.body;
 
     const updates = { updated_at: new Date().toISOString() };
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     if (storeName !== undefined) updates.store_name = storeName;
     if (storeNumber !== undefined) updates.store_number = storeNumber;
     if (phone !== undefined) updates.phone = phone;
@@ -1233,105 +1171,22 @@ app.post('/api/admin/update-store', requireAdminAuth, async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-<<<<<<< HEAD
-=======
 
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-<<<<<<< HEAD
-app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
-=======
 // =============================================
 // DELETE STORE ENDPOINT
 // =============================================
 app.delete('/api/admin/stores/:id', requireAdminAuth, async (req, res) => {
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-<<<<<<< HEAD
-    const [storesResult, profilesResult] = await Promise.all([
-      supabaseAdmin.from('stores').select('id, status', { count: 'exact' }),
-      supabaseAdmin.from('profiles').select('id, role', { count: 'exact' }),
-    ]);
-
-    const stores = storesResult.data || [];
-    const profiles = profilesResult.data || [];
-
-    const totalStores = stores.length;
-    const activeStores = stores.filter(s => s.status === 'active').length;
-    const totalUsers = profiles.length;
-    const storeOwners = profiles.filter(p => p.role === 'store_owner').length;
-    const hrMembers = profiles.filter(p => p.role === 'hr_team').length;
-    const employees = profiles.filter(p => p.role === 'employee').length;
-
-    res.json({
-      success: true,
-      stats: {
-        totalStores,
-        activeStores,
-        inactiveStores: totalStores - activeStores,
-        totalUsers,
-        storeOwners,
-        hrMembers,
-        employees,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/recent-activity', requireAdminAuth, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase not configured' });
-    }
-
-    const { data: recentUsers } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, email, role, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    const { data: recentStores } = await supabaseAdmin
-      .from('stores')
-      .select('id, store_name, status, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    const activities = [];
-
-    (recentUsers || []).forEach(u => {
-      activities.push({
-        id: u.id,
-        type: 'user_created',
-        description: `User ${u.full_name || u.email} (${u.role}) was created`,
-        timestamp: u.created_at,
-      });
-    });
-
-    (recentStores || []).forEach(s => {
-      activities.push({
-        id: s.id,
-        type: 'store_created',
-        description: `Store "${s.store_name}" was created`,
-        timestamp: s.created_at,
-      });
-    });
-
-    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    res.json({ success: true, activities: activities.slice(0, 20) });
-  } catch (error) {
-=======
     const { id } = req.params;
 
     // First delete related employees
@@ -1353,13 +1208,10 @@ app.get('/api/admin/recent-activity', requireAdminAuth, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete store error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
 
-<<<<<<< HEAD
-=======
 // =============================================
 // BULK DELETE STORES ENDPOINT
 // =============================================
@@ -1401,27 +1253,12 @@ app.post('/api/admin/stores/bulk-delete', requireAdminAuth, async (req, res) => 
 // =============================================
 // STORE EMPLOYEE ENDPOINTS
 // =============================================
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 app.post('/api/store/create-employee', requireStoreAuth, async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-<<<<<<< HEAD
-    const { email, fullName, phone, employeeNumber, department, position, salary, hireDate, role, storeId } = req.body;
-
-    if (!email || !fullName || !storeId) {
-      return res.status(400).json({ error: 'Email, full name, and store ID are required' });
-    }
-
-    const hasAccess = await validateStoreAccess(req, storeId);
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'You do not have access to this store' });
-    }
-
-    const tempPassword = generateTempPassword();
-=======
     const { email, password, fullName, phone, employeeNumber, department, position, salary, hireDate, role, storeId } = req.body;
 
     if (!email || !fullName || !employeeNumber || !storeId) {
@@ -1429,17 +1266,12 @@ app.post('/api/store/create-employee', requireStoreAuth, async (req, res) => {
     }
 
     const tempPassword = password || generateTempPassword();
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
       email_confirm: true,
-<<<<<<< HEAD
-      user_metadata: { must_change_password: true },
-=======
       user_metadata: { must_change_password: !password },
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     });
 
     if (authError) {
@@ -1456,37 +1288,6 @@ app.post('/api/store/create-employee', requireStoreAuth, async (req, res) => {
         full_name: fullName,
         phone: phone || null,
         role: role || 'employee',
-<<<<<<< HEAD
-        employee_number: employeeNumber || null,
-        department: department || null,
-        position: position || null,
-        store_id: storeId,
-      });
-
-    if (profileError) {
-      console.error('Employee profile error:', profileError);
-    }
-
-    await sendBrevoEmail(
-      { email, name: fullName },
-      'Welcome to Mawared - Employee Account Created',
-      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #D4A843;">Mawared</h1>
-        <h2>Welcome, ${fullName}!</h2>
-        <p>Your employee account has been created.</p>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Temporary Password:</strong> <code>${tempPassword}</code></p>
-        </div>
-        <p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">
-          <strong>Important:</strong> Change your password on first login.
-        </p>
-      </div>`
-    );
-
-    res.json({ success: true, userId, tempPassword });
-  } catch (error) {
-=======
       });
 
     if (profileError) {
@@ -1521,7 +1322,6 @@ app.post('/api/store/create-employee', requireStoreAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Create employee error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
@@ -1532,34 +1332,6 @@ app.get('/api/store/employees', requireStoreAuth, async (req, res) => {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-<<<<<<< HEAD
-    const role = req.authProfile?.role;
-    let storeId = req.query.storeId;
-
-    if (role === 'store_owner' && !storeId) {
-      const { data: stores } = await supabaseAdmin
-        .from('stores')
-        .select('id')
-        .eq('owner_id', req.authUser.id);
-      const storeIds = (stores || []).map(s => s.id);
-      if (storeIds.length === 0) {
-        return res.json({ success: true, employees: [] });
-      }
-      const { data, error } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('role', 'employee')
-        .in('store_id', storeIds)
-        .order('created_at', { ascending: false });
-      if (error) return res.status(400).json({ error: error.message });
-      return res.json({ success: true, employees: data || [] });
-    }
-
-    if (storeId) {
-      const hasAccess = await validateStoreAccess(req, storeId);
-      if (!hasAccess) {
-        return res.status(403).json({ error: 'You do not have access to this store' });
-=======
     let { storeId } = req.query;
     const user = req.storeUser;
 
@@ -1585,39 +1357,24 @@ app.get('/api/store/employees', requireStoreAuth, async (req, res) => {
         if (empRecord) {
           storeId = empRecord.store_id;
         }
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
       }
     }
 
     let query = supabaseAdmin
-<<<<<<< HEAD
-      .from('profiles')
-      .select('*')
-      .eq('role', 'employee')
-=======
       .from('employees')
       .select('*')
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
       .order('created_at', { ascending: false });
 
     if (storeId) {
       query = query.eq('store_id', storeId);
     }
 
-<<<<<<< HEAD
-    const { data, error } = await query;
-=======
     const { data: employees, error } = await query;
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-<<<<<<< HEAD
-    res.json({ success: true, employees: data || [] });
-  } catch (error) {
-=======
     // Manually join profiles since there's no FK relationship
     let enrichedEmployees = employees || [];
     if (enrichedEmployees.length > 0) {
@@ -1639,7 +1396,6 @@ app.get('/api/store/employees', requireStoreAuth, async (req, res) => {
     res.json({ success: true, employees: enrichedEmployees });
   } catch (error) {
     console.error('GET employees error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
@@ -1650,19 +1406,6 @@ app.get('/api/store/employees/:id', requireStoreAuth, async (req, res) => {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-<<<<<<< HEAD
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) {
-      return res.status(404).json({ error: 'Employee not found' });
-    }
-
-    res.json({ success: true, employee: data });
-=======
     const { id } = req.params;
 
     const { data: employee, error } = await supabaseAdmin
@@ -1687,7 +1430,6 @@ app.get('/api/store/employees/:id', requireStoreAuth, async (req, res) => {
     }
 
     res.json({ success: true, employee: enrichedEmployee });
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1700,24 +1442,6 @@ app.post('/api/store/update-employee', requireStoreAuth, async (req, res) => {
     }
 
     const { employeeId, fullName, phone, department, position, salary, hireDate } = req.body;
-<<<<<<< HEAD
-    const updates = {};
-    if (fullName !== undefined) updates.full_name = fullName;
-    if (phone !== undefined) updates.phone = phone;
-    if (department !== undefined) updates.department = department;
-    if (position !== undefined) updates.position = position;
-    if (salary !== undefined) updates.salary = salary;
-    if (hireDate !== undefined) updates.hire_date = hireDate;
-
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .update(updates)
-      .eq('id', employeeId);
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-=======
 
     // Update employee record
     const empUpdates = { updated_at: new Date().toISOString() };
@@ -1755,7 +1479,6 @@ app.post('/api/store/update-employee', requireStoreAuth, async (req, res) => {
       }
     }
 
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1769,27 +1492,16 @@ app.post('/api/store/toggle-employee-status', requireStoreAuth, async (req, res)
     }
 
     const { employeeId, status } = req.body;
-<<<<<<< HEAD
-    const banned = status === 'inactive';
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(employeeId, {
-      ban_duration: banned ? '876000h' : 'none',
-    });
-=======
 
     const { error } = await supabaseAdmin
       .from('employees')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', employeeId);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-<<<<<<< HEAD
-=======
 
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1803,11 +1515,6 @@ app.post('/api/store/reset-employee-password', requireStoreAuth, async (req, res
     }
 
     const { employeeId } = req.body;
-<<<<<<< HEAD
-    const tempPassword = generateTempPassword();
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(employeeId, {
-=======
 
     // Get the employee's user_id
     const { data: emp } = await supabaseAdmin
@@ -1823,7 +1530,6 @@ app.post('/api/store/reset-employee-password', requireStoreAuth, async (req, res
     const tempPassword = generateTempPassword();
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(emp.user_id, {
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
       password: tempPassword,
       user_metadata: { must_change_password: true },
     });
@@ -1832,46 +1538,12 @@ app.post('/api/store/reset-employee-password', requireStoreAuth, async (req, res
       return res.status(400).json({ error: error.message });
     }
 
-<<<<<<< HEAD
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('email, full_name')
-      .eq('id', employeeId)
-      .single();
-
-    if (profile?.email) {
-      await sendBrevoEmail(
-        { email: profile.email, name: profile.full_name || profile.email },
-        'Mawared - Password Reset',
-        `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #D4A843;">Mawared</h1>
-          <h2>Password Reset</h2>
-          <p>Your password has been reset by an administrator.</p>
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>New Temporary Password:</strong> <code>${tempPassword}</code></p>
-          </div>
-          <p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">
-            Change your password on next login.
-          </p>
-        </div>`
-      );
-    }
-
-=======
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.json({ success: true, tempPassword });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-<<<<<<< HEAD
-app.get('/api/admin/subscription-plans-public', async (req, res) => {
-  try {
-    const plans = loadPlansFromFile();
-    res.json({ success: true, plans: plans.filter(p => p.is_active) });
-  } catch (error) {
-=======
 app.delete('/api/store/employees/:id', requireStoreAuth, async (req, res) => {
   try {
     if (!supabaseAdmin) {
@@ -1962,7 +1634,6 @@ app.post('/api/store/employees/bulk-delete', requireStoreAuth, async (req, res) 
     res.json({ success: true, deletedCount: employeeIds.length });
   } catch (error) {
     console.error('Bulk delete employees error:', error);
->>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
     res.status(500).json({ error: error.message });
   }
 });
