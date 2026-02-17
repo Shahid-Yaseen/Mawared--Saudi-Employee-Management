@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../store/ThemeContext';
-import { supabase } from '../services/supabase';
+import { supabase, signOut } from '../services/supabase';
 
 interface SidebarLayoutProps {
     children: React.ReactNode;
@@ -27,7 +27,11 @@ export default function SidebarLayout({ children, navigation, activeRoute, role 
         if (Platform.OS === 'web') {
             const confirmed = window.confirm('Are you sure you want to logout?');
             if (confirmed) {
-                await supabase.auth.signOut();
+                try {
+                    await signOut();
+                } catch (e) {
+                    console.error('Logout failed:', e);
+                }
             }
         } else {
             const { Alert } = require('react-native');
@@ -36,7 +40,7 @@ export default function SidebarLayout({ children, navigation, activeRoute, role 
                 'Are you sure you want to logout?',
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Logout', style: 'destructive', onPress: () => supabase.auth.signOut() },
+                    { text: 'Logout', style: 'destructive', onPress: async () => { try { await signOut(); } catch (e) { console.error('Logout failed:', e); } } },
                 ]
             );
         }

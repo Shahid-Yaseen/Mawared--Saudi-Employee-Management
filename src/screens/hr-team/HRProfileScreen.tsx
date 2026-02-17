@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { Card, Title, Avatar, List, Switch, Button } from 'react-native-paper';
-import { supabase } from '../../services/supabase';
+import { supabase, signOut } from '../../services/supabase';
 import { useTheme } from '../../store/ThemeContext';
 
 export default function HRProfileScreen({ navigation }: any) {
@@ -33,8 +33,31 @@ export default function HRProfileScreen({ navigation }: any) {
     };
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        navigation.replace('Login');
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to logout?');
+            if (confirmed) {
+                try {
+                    await signOut();
+                } catch (e) {
+                    console.error('Logout failed:', e);
+                }
+            }
+        } else {
+            Alert.alert(
+                'Logout',
+                'Are you sure you want to logout?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Logout',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try { await signOut(); } catch (e) { console.error('Logout failed:', e); }
+                        },
+                    },
+                ]
+            );
+        }
     };
 
     return (

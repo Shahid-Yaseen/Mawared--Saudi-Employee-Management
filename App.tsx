@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 if (Platform.OS !== 'web') {
   require('react-native-url-polyfill/auto');
 }
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -37,112 +37,188 @@ function Main() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    checkUser();
+  // Refs to prevent race conditions and concurrent loads
+  const isLoadingProfile = useRef(false);
+  const safetyTimeoutRef = useRef<any>(null);
+  const initialLoadDone = useRef(false);
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('App: Auth State Changed:', event, session?.user?.email);
-        if (event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
-          console.log('App: User updated, reloading profile...');
-          await loadUserProfile(session?.user?.id || '');
-          return;
-        }
-        if (session?.user) {
-          console.log('App: Session found, loading profile...');
-          await loadUserProfile(session.user.id);
+  const inferRoleFromEmail = (email: string) => {
+    if (email.includes('admin@')) return 'admin';
+    if (email.includes('owner@')) return 'store_owner';
+    if (email.includes('hr@')) return 'hr_team';
+    return 'employee';
+  };
+
+  // Core profile loader - with concurrency guard
+  const loadUserProfile = useCallback(async (uid: string) => {
+    // Prevent concurrent profile loads (race condition fix)
+    if (isLoadingProfile.current) {
+      console.log('App: Profile load already in progress, skipping duplicate');
+      return;
+    }
+    isLoadingProfile.current = true;
+    console.log('App: Loading profile for:', uid);
+
+    // Safety timeout - NEVER leave user stuck loading
+    const timeout = setTimeout(() => {
+      console.warn('App: Profile load timed out after 5s');
+      isLoadingProfile.current = false;
+      setIsLoading(false);
+    }, 5000);
+
+    try {
+      // Query profile from database (NOT auth.getUser which can cause deadlock)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, email, full_name')
+        .eq('id', uid)
+        .single();
+
+      if (profileError) {
+        console.log('App: Profile query error:', profileError.message);
+      }
+
+      // Get user metadata for must_change_password check
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || profile?.email || '';
+
+      clearTimeout(timeout);
+      setUserId(uid);
+
+      // Check if password change is required
+      const mustChange = user?.user_metadata?.must_change_password === true;
+      if (mustChange) {
+        console.log('App: User must change password');
+        const role = profile?.role || inferRoleFromEmail(userEmail);
+        setMustChangePassword(true);
+        setUserRole(role === 'admin' ? 'admin' : role);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        isLoadingProfile.current = false;
+        return;
+      }
+
+      // Determine role
+      let role = inferRoleFromEmail(userEmail);
+      if (profile?.role) {
+        role = profile.role === 'admin' ? 'admin' : profile.role;
+      }
+
+      console.log('App: Authenticated as role:', role);
+      setMustChangePassword(false);
+      setUserRole(role);
+      setIsAuthenticated(true);
+      setIsLoading(false);
+    } catch (error: any) {
+      clearTimeout(timeout);
+      console.error('App: Profile load error:', error);
+
+      // Fallback: try to get role from email
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(uid);
+          setUserRole(inferRoleFromEmail(user.email || ''));
+          setMustChangePassword(false);
+          setIsAuthenticated(true);
         } else {
-          console.log('App: No session, clearing state');
+          setIsAuthenticated(false);
+          setUserRole(null);
+        }
+      } catch (e) {
+        console.error('App: Complete fallback failed:', e);
+        setIsAuthenticated(false);
+        setUserRole(null);
+      }
+      setIsLoading(false);
+    } finally {
+      isLoadingProfile.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    // Global safety timeout - absolute maximum loading time
+    safetyTimeoutRef.current = setTimeout(() => {
+      console.warn('App: Global safety timeout (6s), forcing load complete');
+      setIsLoading(false);
+    }, 6000);
+
+    // CRITICAL: The onAuthStateChange callback must NOT be async.
+    // Making it async blocks Supabase's internal event queue, causing:
+    // - Events to be dropped/delayed
+    // - Deadlocks when loadUserProfile calls supabase.auth.getUser()
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('App: Auth event:', event, session?.user?.email || 'no-user');
+
+        if (event === 'SIGNED_OUT') {
           setIsAuthenticated(false);
           setUserRole(null);
           setMustChangePassword(false);
           setUserId(null);
+          setIsLoading(false);
+          return;
+        }
+
+        // Skip token refreshes - no need to reload profile
+        if (event === 'TOKEN_REFRESHED') {
+          return;
+        }
+
+        // For INITIAL_SESSION: only handle if we haven't loaded yet
+        if (event === 'INITIAL_SESSION') {
+          if (session?.user && !initialLoadDone.current) {
+            initialLoadDone.current = true;
+            // Use setTimeout(0) to avoid blocking the Supabase event queue
+            setTimeout(() => loadUserProfile(session.user.id), 0);
+          } else if (!session) {
+            initialLoadDone.current = true;
+            setIsAuthenticated(false);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        // For SIGNED_IN, USER_UPDATED, PASSWORD_RECOVERY
+        if (session?.user) {
+          initialLoadDone.current = true;
+          // Non-blocking: schedule profile load outside the callback
+          setTimeout(() => loadUserProfile(session.user.id), 0);
+        } else {
+          setIsAuthenticated(false);
+          setUserRole(null);
+          setIsLoading(false);
         }
       }
     );
 
+    // Fallback: if INITIAL_SESSION never fires (older Supabase versions)
+    // do a manual check after a short delay
+    const fallbackTimer = setTimeout(async () => {
+      if (!initialLoadDone.current) {
+        console.log('App: Fallback session check (INITIAL_SESSION may not have fired)');
+        initialLoadDone.current = true;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            loadUserProfile(session.user.id);
+          } else {
+            setIsAuthenticated(false);
+            setIsLoading(false);
+          }
+        } catch {
+          setIsAuthenticated(false);
+          setIsLoading(false);
+        }
+      }
+    }, 1500);
+
     return () => {
-      if (authListener?.subscription) {
-        authListener.subscription.unsubscribe();
-      }
+      authListener?.subscription?.unsubscribe();
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+      clearTimeout(fallbackTimer);
     };
-  }, []);
-
-  const checkUser = async () => {
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 10000);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
-      } else {
-        setIsAuthenticated(false);
-        setUserRole(null);
-      }
-    } catch (error: any) {
-      console.error('App: Auth check error:', error);
-      setIsAuthenticated(false);
-    } finally {
-      clearTimeout(timeout);
-      setIsLoading(false);
-    }
-  };
-
-  const loadUserProfile = async (uid: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const userEmail = user?.email || '';
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', uid)
-        .single();
-
-      setUserId(uid);
-
-      const mustChange = user?.user_metadata?.must_change_password === true;
-      if (mustChange) {
-        setMustChangePassword(true);
-        setIsAuthenticated(true);
-        setUserRole(profile?.role || 'employee');
-        return;
-      }
-
-      setMustChangePassword(false);
-
-      if (profile?.role) {
-        setUserRole(profile.role === 'admin' ? 'admin' : profile.role);
-      } else if (userEmail.includes('owner@')) {
-        setUserRole('store_owner');
-      } else if (userEmail.includes('hr@')) {
-        setUserRole('hr_team');
-      } else if (userEmail.includes('admin@')) {
-        setUserRole('admin');
-      } else {
-        setUserRole('employee');
-      }
-      setIsAuthenticated(true);
-    } catch (error) {
-      const { data: { user } } = await supabase.auth.getUser();
-      const userEmail = user?.email || '';
-      setUserId(uid);
-
-      if (userEmail.includes('admin@')) {
-        setUserRole('admin');
-      } else if (userEmail.includes('owner@')) {
-        setUserRole('store_owner');
-      } else if (userEmail.includes('hr@')) {
-        setUserRole('hr_team');
-      } else {
-        setUserRole('employee');
-      }
-      setMustChangePassword(false);
-      setIsAuthenticated(true);
-    }
-  };
+  }, [loadUserProfile]);
 
   if (isLoading) {
     return (

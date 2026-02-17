@@ -20,46 +20,56 @@ export default function ForceChangePasswordScreen({ route }: any) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const showAlert = (title: string, message: string) => {
+        if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${message}`);
+        } else {
+            Alert.alert(title, message);
+        }
+    };
 
     const handleChangePassword = async () => {
-        console.log('Attempting password change for user...');
+        setError('');
+
         if (newPassword.length < 8) {
-            Alert.alert('Validation Error', 'Password must be at least 8 characters long');
+            const msg = 'Password must be at least 8 characters long';
+            setError(msg);
+            showAlert('Validation Error', msg);
             return;
         }
         if (newPassword !== confirmPassword) {
-            Alert.alert('Validation Error', 'Passwords do not match');
+            const msg = 'Passwords do not match';
+            setError(msg);
+            showAlert('Validation Error', msg);
             return;
         }
 
         setLoading(true);
         try {
-            console.log('Calling supabase.auth.updateUser...');
-            const { data, error: updateError } = await supabase.auth.updateUser({
+            console.log('ForceChange: Updating password...');
+            const { error: updateError } = await supabase.auth.updateUser({
                 password: newPassword,
                 data: { must_change_password: false }
             });
 
             if (updateError) {
-                console.error('Update password error:', updateError);
+                console.error('ForceChange: Update error:', updateError);
                 throw updateError;
             }
 
-            console.log('Password updated successfully:', data);
-
-            if (Platform.OS === 'web') {
-                console.log('Web platform detected, showing alert and waiting for listener...');
-                alert('Password changed successfully! Redirecting to dashboard...');
-                // The App.tsx listener for USER_UPDATED should handle the state change
-                return;
-            }
-
-            Alert.alert('Success', 'Password changed successfully');
-        } catch (error: any) {
-            console.error('Password change catch block:', error);
-            Alert.alert('Error', error.message || 'Failed to change password');
-        } finally {
-            console.log('Password change process finished (finally)');
+            console.log('ForceChange: Password updated successfully');
+            // The USER_UPDATED event in App.tsx will detect must_change_password=false
+            // and switch to the dashboard navigator. Show a brief message.
+            showAlert('Success', 'Password changed successfully! Redirecting...');
+            // NOTE: Don't setLoading(false) here — let App.tsx handle the transition.
+            // The auth listener will fire USER_UPDATED and reload the profile.
+        } catch (err: any) {
+            console.error('ForceChange: Error:', err);
+            const msg = err.message || 'Failed to change password';
+            setError(msg);
+            showAlert('Error', msg);
             setLoading(false);
         }
     };
@@ -89,6 +99,13 @@ export default function ForceChangePasswordScreen({ route }: any) {
 
             <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
                 <Card.Content>
+                    {error ? (
+                        <View style={styles.errorBanner}>
+                            <Ionicons name="alert-circle" size={18} color="#D32F2F" />
+                            <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                    ) : null}
+
                     <TextInput
                         label="New Password"
                         value={newPassword}
@@ -209,5 +226,21 @@ const styles = StyleSheet.create({
     },
     submitButton: {
         borderRadius: 8,
+    },
+    errorBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFEBEE',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 16,
+        borderLeftWidth: 4,
+        borderLeftColor: '#D32F2F',
+    },
+    errorText: {
+        color: '#D32F2F',
+        marginLeft: 8,
+        flex: 1,
+        fontSize: 14,
     },
 });

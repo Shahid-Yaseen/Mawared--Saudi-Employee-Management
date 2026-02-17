@@ -36,8 +36,20 @@ export const getUserProfile = async (userId: string) => {
     return data;
 };
 
-// Helper function to sign out
+// Helper function to sign out - robust: always clears local session even if server call fails
 export const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+        const { error } = await supabase.auth.signOut({ scope: 'global' });
+        if (error) {
+            console.warn('Global sign out failed, forcing local sign out:', error.message);
+            await supabase.auth.signOut({ scope: 'local' });
+        }
+    } catch (e) {
+        console.warn('Sign out error, forcing local sign out:', e);
+        try {
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (localErr) {
+            console.error('Even local sign out failed:', localErr);
+        }
+    }
 };

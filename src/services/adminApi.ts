@@ -1,6 +1,28 @@
 import { supabase } from './supabase';
 
+<<<<<<< HEAD
 const API_BASE = '';
+=======
+import { Platform } from 'react-native';
+
+// Determine API base URL:
+// - On Replit (production), use same origin (empty string)
+// - On localhost dev, use the server port 5001
+// - On native, use explicit URL
+function getApiBase(): string {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location?.hostname || '';
+    // If running on Replit or any non-localhost domain, use same origin
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return '';
+    }
+    // On localhost, proxy through the server port
+    return `http://localhost:5001`;
+  }
+  // Native apps use explicit URL
+  return 'http://localhost:5001';
+}
+>>>>>>> 9db1e1e (feat: employee delete and bulk delete, EmployeesScreen full rewrite, server endpoints, adminApi methods)
 
 async function getAuthToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -9,7 +31,8 @@ async function getAuthToken(): Promise<string> {
 
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = await getAuthToken();
-  const url = `${API_BASE}${endpoint}`;
+  const apiBase = getApiBase();
+  const url = `${apiBase}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
@@ -24,7 +47,7 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
   if (!contentType || !contentType.includes('application/json')) {
     const text = await response.text();
     console.error('Non-JSON response received:', text.substring(0, 200));
-    throw new Error(`Server returned non-JSON response (${response.status}). Expected JSON but got ${contentType || 'text/plain'}. Please ensure the backend server is running on port 5001.`);
+    throw new Error(`Server returned non-JSON response (${response.status}). Expected JSON but got ${contentType || 'text/plain'}. Please ensure the backend server is running.`);
   }
 
   const data = await response.json();
@@ -121,6 +144,17 @@ export const adminApi = {
 
   getStoreDetails: (id: string) => apiCall(`/api/admin/stores/${id}`),
 
+  deleteStore: (storeId: string) =>
+    apiCall(`/api/admin/stores/${storeId}`, {
+      method: 'DELETE',
+    }),
+
+  bulkDeleteStores: (storeIds: string[]) =>
+    apiCall('/api/admin/stores/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ storeIds }),
+    }),
+
   toggleStoreStatus: (storeId: string, status: string) =>
     apiCall('/api/admin/toggle-store-status', {
       method: 'POST',
@@ -134,6 +168,33 @@ export const adminApi = {
     phone?: string;
     status?: string;
   }) => apiCall('/api/admin/update-store', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
+
+  resendCredentials: (userId: string) =>
+    apiCall('/api/admin/resend-credentials', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    }),
+
+  deleteUser: (userId: string) =>
+    apiCall(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    }),
+
+  bulkDeleteUsers: (userIds: string[]) =>
+    apiCall('/api/admin/users/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    }),
+
+  updateStoreOwner: (params: {
+    userId: string;
+    fullName?: string;
+    phone?: string;
+    email?: string;
+  }) => apiCall('/api/admin/update-store-owner', {
     method: 'POST',
     body: JSON.stringify(params),
   }),
@@ -188,6 +249,17 @@ export const adminApi = {
     apiCall('/api/store/reset-employee-password', {
       method: 'POST',
       body: JSON.stringify({ employeeId }),
+    }),
+
+  deleteEmployee: (employeeId: string) =>
+    apiCall(`/api/store/employees/${employeeId}`, {
+      method: 'DELETE',
+    }),
+
+  bulkDeleteEmployees: (employeeIds: string[]) =>
+    apiCall('/api/store/employees/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ employeeIds }),
     }),
 
   checkHealth: () => apiCall('/api/health'),

@@ -12,12 +12,35 @@ import {
     Platform,
     ActivityIndicator,
 } from 'react-native';
-import { Card, FAB, Searchbar, Chip, Button } from 'react-native-paper';
+import { Card, FAB, Searchbar, Chip, Button, Checkbox, IconButton } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../services/supabase';
 import { Spacing, Typography, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
+
+// Cross-platform alert helper
+function showAlert(title: string, message: string, onOk?: () => void) {
+    if (Platform.OS === 'web') {
+        window.alert(`${title}\n\n${message}`);
+        onOk?.();
+    } else {
+        Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+    }
+}
+
+function showConfirm(title: string, message: string, onConfirm: () => void) {
+    if (Platform.OS === 'web') {
+        if (window.confirm(`${title}\n\n${message}`)) {
+            onConfirm();
+        }
+    } else {
+        Alert.alert(title, message, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Confirm', style: 'destructive', onPress: onConfirm },
+        ]);
+    }
+}
 
 
 export default function EmployeesScreen({ navigation }: any) {
@@ -31,6 +54,10 @@ export default function EmployeesScreen({ navigation }: any) {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
+    // Selection / bulk mode
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
     useFocusEffect(
         useCallback(() => {
             console.log('EmployeesScreen focused, loading employees...');
@@ -41,16 +68,12 @@ export default function EmployeesScreen({ navigation }: any) {
     const loadData = async () => {
         if (!refreshing) setLoading(true);
         try {
-            console.log('API CALL: getEmployees starting...');
-            // The API will automatically detect the user's store if we don't pass an ID
             const result = await adminApi.getEmployees();
-            console.log('API RESULT: getEmployees success:', result.success, 'Count:', result.employees?.length);
-
             if (result.success) {
                 setEmployees(result.employees || []);
             }
         } catch (error) {
-            console.error('API ERROR: loading employees failed:', error);
+            console.error('Loading employees failed:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -62,6 +85,32 @@ export default function EmployeesScreen({ navigation }: any) {
         loadData();
     };
 
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            // Exit selection mode if nothing left
+            if (next.size === 0) {
+                setSelectionMode(false);
+            }
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        const allIds = new Set(filteredEmployees.map(e => e.id));
+        setSelectedIds(allIds);
+    };
+
     const toggleEmployeeStatus = async (employeeId: string, currentStatus: string) => {
         try {
             const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
@@ -70,46 +119,84 @@ export default function EmployeesScreen({ navigation }: any) {
                 loadData();
             }
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to update status');
+            showAlert('Error', error.message || 'Failed to update status');
         }
     };
 
     const handleResetPassword = async (item: any) => {
-        const resetAction = async () => {
-            try {
-                setLoading(true);
-                const result = await adminApi.resetEmployeePassword(item.id);
-                if (result.success) {
-                    Alert.alert('Success', `Password reset instructions sent to ${item.profiles?.email}`);
+        showConfirm(
+            'Reset Password',
+            'Are you sure you want to reset password for this employee?',
+            async () => {
+                try {
+                    setLoading(true);
+                    const result = await adminApi.resetEmployeePassword(item.id);
+                    if (result.success) {
+                        showAlert('Success', `Password reset for ${item.profiles?.full_name || item.profiles?.email || 'employee'}.${result.tempPassword ? `\n\nNew temporary password: ${result.tempPassword}` : ''}`);
+                    }
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to reset password');
+                } finally {
+                    setLoading(false);
                 }
-            } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to reset password');
-            } finally {
-                setLoading(false);
             }
-        };
-
-        if (Platform.OS === 'web') {
-            if (window.confirm('Are you sure you want to reset password for this employee?')) {
-                resetAction();
-            }
-        } else {
-            Alert.alert(
-                'Reset Password',
-                'Are you sure you want to reset password for this employee?',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Reset', style: 'destructive', onPress: resetAction }
-                ]
-            );
-        }
+        );
     };
 
-    const filteredEmployees = employees.filter((emp) =>
-        emp.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.employee_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.department?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const handleDeleteEmployee = (item: any) => {
+        showConfirm(
+            'Delete Employee',
+            `Are you sure you want to permanently delete ${item.profiles?.full_name || 'this employee'}? This action cannot be undone.`,
+            async () => {
+                try {
+                    setLoading(true);
+                    const result = await adminApi.deleteEmployee(item.id);
+                    if (result.success) {
+                        showAlert('Deleted', 'Employee has been deleted successfully.');
+                        loadData();
+                    }
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to delete employee');
+                } finally {
+                    setLoading(false);
+                }
+            }
+        );
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+        showConfirm(
+            'Bulk Delete',
+            `Are you sure you want to permanently delete ${selectedIds.size} employee(s)? This action cannot be undone.`,
+            async () => {
+                try {
+                    setLoading(true);
+                    const result = await adminApi.bulkDeleteEmployees(Array.from(selectedIds));
+                    if (result.success) {
+                        showAlert('Deleted', `${selectedIds.size} employee(s) deleted successfully.`);
+                        exitSelectionMode();
+                        loadData();
+                    }
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to delete employees');
+                } finally {
+                    setLoading(false);
+                }
+            }
+        );
+    };
+
+    const filteredEmployees = employees.filter((emp) => {
+        const matchesSearch =
+            emp.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            emp.employee_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            emp.department?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesFilter = !filterStatus || emp.status === filterStatus;
+
+        return matchesSearch && matchesFilter;
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -121,96 +208,168 @@ export default function EmployeesScreen({ navigation }: any) {
         }
     };
 
-    const renderEmployee = ({ item }: any) => (
-        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-            <Card.Content>
-                <View style={styles.employeeHeader}>
-                    <TouchableOpacity
-                        onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
-                        style={styles.employeeInfo}
-                    >
-                        <Text style={[styles.employeeName, { color: theme.colors.text }]}>
-                            {item.profiles?.full_name || 'Unknown'}
-                        </Text>
-                        <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>#{item.employee_number}</Text>
-                    </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {(item.profiles?.role === 'hr' || item.position?.includes('HR')) && (
-                            <Chip
-                                style={{ backgroundColor: theme.colors.primary + '20', marginRight: 8 }}
-                                textStyle={{ color: theme.colors.primary, fontSize: 10, fontWeight: 'bold' }}
-                            >
-                                HR
-                            </Chip>
+    const renderEmployee = ({ item }: any) => {
+        const isSelected = selectedIds.has(item.id);
+
+        return (
+            <Card
+                style={[
+                    styles.card,
+                    { backgroundColor: theme.colors.surface },
+                    isSelected && { borderColor: theme.colors.primary, borderWidth: 2 },
+                ]}
+            >
+                <Card.Content>
+                    <View style={styles.employeeHeader}>
+                        {selectionMode && (
+                            <Checkbox
+                                status={isSelected ? 'checked' : 'unchecked'}
+                                onPress={() => toggleSelect(item.id)}
+                                color={theme.colors.primary}
+                            />
                         )}
-                        <Chip
-                            style={[
-                                styles.statusChip,
-                                { backgroundColor: getStatusColor(item.status) + '20' },
-                            ]}
-                            textStyle={{ color: getStatusColor(item.status) }}
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (selectionMode) {
+                                    toggleSelect(item.id);
+                                } else {
+                                    navigation.navigate('EmployeeDetails', { employeeId: item.id });
+                                }
+                            }}
+                            onLongPress={() => {
+                                if (!selectionMode) {
+                                    setSelectionMode(true);
+                                    setSelectedIds(new Set([item.id]));
+                                }
+                            }}
+                            style={styles.employeeInfo}
                         >
-                            {item.status}
-                        </Chip>
+                            <Text style={[styles.employeeName, { color: theme.colors.text }]}>
+                                {item.profiles?.full_name || 'Unknown'}
+                            </Text>
+                            <Text style={[styles.employeeNumber, { color: theme.colors.textSecondary }]}>#{item.employee_number}</Text>
+                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {(item.profiles?.role === 'hr' || item.position?.includes('HR')) && (
+                                <Chip
+                                    style={{ backgroundColor: theme.colors.primary + '20', marginRight: 8 }}
+                                    textStyle={{ color: theme.colors.primary, fontSize: 10, fontWeight: 'bold' }}
+                                >
+                                    HR
+                                </Chip>
+                            )}
+                            <Chip
+                                style={[
+                                    styles.statusChip,
+                                    { backgroundColor: getStatusColor(item.status) + '20' },
+                                ]}
+                                textStyle={{ color: getStatusColor(item.status) }}
+                            >
+                                {item.status}
+                            </Chip>
+                        </View>
                     </View>
-                </View>
 
-                <View style={styles.employeeDetails}>
-                    <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.department')}</Text>
-                        <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.department}</Text>
+                    <View style={styles.employeeDetails}>
+                        <View style={styles.detailItem}>
+                            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.department')}</Text>
+                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.department || '—'}</Text>
+                        </View>
+                        <View style={styles.detailItem}>
+                            <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.position')}</Text>
+                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.position || '—'}</Text>
+                        </View>
                     </View>
-                    <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{t('profile.position')}</Text>
-                        <Text style={[styles.detailValue, { color: theme.colors.text }]}>{item.position}</Text>
-                    </View>
-                </View>
 
-                <View style={styles.actions}>
-                    <Button
-                        mode="outlined"
-                        onPress={() => navigation.navigate('EditEmployee', { employeeId: item.id, initialData: item })}
-                        style={[styles.actionButton, { borderColor: theme.colors.primary }]}
-                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
-                    >
-                        Edit
-                    </Button>
-                    <Button
-                        mode="outlined"
-                        onPress={() => toggleEmployeeStatus(item.id, item.status)}
-                        style={[styles.actionButton, { borderColor: theme.colors.outline }]}
-                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
-                    >
-                        {item.status === 'active' ? 'Disable' : 'Enable'}
-                    </Button>
-                    <Button
-                        mode="outlined"
-                        onPress={() => handleResetPassword(item)}
-                        style={[styles.actionButton, { borderColor: theme.colors.error }]}
-                        labelStyle={{ color: theme.colors.error, fontSize: 11 }}
-                    >
-                        Rest Pass
-                    </Button>
-                    <Button
-                        mode="outlined"
-                        onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
-                        style={[styles.actionButton, { borderColor: theme.colors.primary }]}
-                        labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
-                    >
-                        Info
-                    </Button>
-                </View>
-            </Card.Content>
-        </Card>
-    );
+                    {!selectionMode && (
+                        <View style={styles.actions}>
+                            <Button
+                                mode="outlined"
+                                onPress={() => navigation.navigate('EditEmployee', { employeeId: item.id, initialData: item })}
+                                style={[styles.actionButton, { borderColor: theme.colors.primary }]}
+                                labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                            >
+                                Edit
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                onPress={() => toggleEmployeeStatus(item.id, item.status)}
+                                style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                                labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                            >
+                                {item.status === 'active' ? 'Disable' : 'Enable'}
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                onPress={() => handleResetPassword(item)}
+                                style={[styles.actionButton, { borderColor: theme.colors.warning || '#FF9800' }]}
+                                labelStyle={{ color: theme.colors.warning || '#FF9800', fontSize: 11 }}
+                            >
+                                Reset Pass
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                onPress={() => handleDeleteEmployee(item)}
+                                style={[styles.actionButton, { borderColor: theme.colors.error }]}
+                                labelStyle={{ color: theme.colors.error, fontSize: 11 }}
+                            >
+                                Delete
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                onPress={() => navigation.navigate('EmployeeDetails', { employeeId: item.id })}
+                                style={[styles.actionButton, { borderColor: theme.colors.primary }]}
+                                labelStyle={{ color: theme.colors.primary, fontSize: 11 }}
+                            >
+                                Info
+                            </Button>
+                        </View>
+                    )}
+                </Card.Content>
+            </Card>
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {/* Page title for large screens */}
             {isLargeScreen && (
                 <View style={{ padding: Spacing.lg, paddingBottom: 0 }}>
                     <Text style={{ ...Typography.h3, fontWeight: '800', color: theme.colors.text }}>{t('employees.title')}</Text>
                 </View>
             )}
+
+            {/* Selection mode toolbar */}
+            {selectionMode && (
+                <View style={[styles.selectionBar, { backgroundColor: theme.colors.primary + '15', borderBottomColor: theme.colors.primary }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <IconButton icon="close" size={22} onPress={exitSelectionMode} iconColor={theme.colors.text} />
+                        <Text style={[styles.selectionText, { color: theme.colors.text }]}>
+                            {selectedIds.size} selected
+                        </Text>
+                        <Button
+                            mode="text"
+                            onPress={selectAll}
+                            labelStyle={{ color: theme.colors.primary, fontSize: 13 }}
+                        >
+                            Select All
+                        </Button>
+                    </View>
+                    <Button
+                        mode="contained"
+                        onPress={handleBulkDelete}
+                        buttonColor={theme.colors.error}
+                        textColor="#fff"
+                        icon="delete"
+                        style={{ borderRadius: 8 }}
+                        labelStyle={{ fontSize: 13, fontWeight: '700' }}
+                    >
+                        Delete ({selectedIds.size})
+                    </Button>
+                </View>
+            )}
+
+            {/* Search & filter header */}
             <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.divider }]}>
                 <Searchbar
                     placeholder={t('employees.searchPlaceholder')}
@@ -222,39 +381,22 @@ export default function EmployeesScreen({ navigation }: any) {
                 />
 
                 <View style={styles.filterContainer}>
-                    <Chip
-                        selected={filterStatus === null}
-                        onPress={() => {
-                            setFilterStatus(null);
-                            loadData();
-                        }}
-                        style={styles.filterChip}
-                        selectedColor={theme.colors.primary}
-                    >
-                        All
-                    </Chip>
-                    <Chip
-                        selected={filterStatus === 'active'}
-                        onPress={() => {
-                            setFilterStatus('active');
-                            loadData();
-                        }}
-                        style={styles.filterChip}
-                        selectedColor={theme.colors.primary}
-                    >
-                        {t('employees.active')}
-                    </Chip>
-                    <Chip
-                        selected={filterStatus === 'on_leave'}
-                        onPress={() => {
-                            setFilterStatus('on_leave');
-                            loadData();
-                        }}
-                        style={styles.filterChip}
-                        selectedColor={theme.colors.primary}
-                    >
-                        {t('employees.onLeave')}
-                    </Chip>
+                    {[
+                        { key: null, label: 'All' },
+                        { key: 'active', label: t('employees.active') },
+                        { key: 'on_leave', label: t('employees.onLeave') },
+                        { key: 'suspended', label: 'Suspended' },
+                    ].map(f => (
+                        <Chip
+                            key={f.key ?? 'all'}
+                            selected={filterStatus === f.key}
+                            onPress={() => setFilterStatus(f.key)}
+                            style={styles.filterChip}
+                            selectedColor={theme.colors.primary}
+                        >
+                            {f.label}
+                        </Chip>
+                    ))}
                 </View>
             </View>
 
@@ -263,6 +405,7 @@ export default function EmployeesScreen({ navigation }: any) {
                 renderItem={renderEmployee}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.list}
+                extraData={selectedIds}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
                 }
@@ -280,13 +423,15 @@ export default function EmployeesScreen({ navigation }: any) {
                 }
             />
 
-            <FAB
-                icon="plus"
-                label={t('employees.addEmployee')}
-                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                color="#FFFFFF"
-                onPress={() => navigation.navigate('AddEmployee')}
-            />
+            {!selectionMode && (
+                <FAB
+                    icon="plus"
+                    label={t('employees.addEmployee')}
+                    style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                    color="#FFFFFF"
+                    onPress={() => navigation.navigate('AddEmployee')}
+                />
+            )}
         </View>
     );
 }
@@ -294,6 +439,18 @@ export default function EmployeesScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    selectionBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        borderBottomWidth: 2,
+    },
+    selectionText: {
+        ...Typography.body,
+        fontWeight: '700',
+        marginRight: Spacing.sm,
     },
     header: {
         padding: Spacing.md,

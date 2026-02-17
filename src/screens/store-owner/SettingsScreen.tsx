@@ -28,7 +28,11 @@ export default function SettingsScreen({ navigation }: any) {
         if (Platform.OS === 'web') {
             const confirmed = window.confirm('Are you sure you want to logout?');
             if (confirmed) {
-                await signOut();
+                try {
+                    await signOut();
+                } catch (e) {
+                    console.error('Logout failed:', e);
+                }
             }
         } else {
             const { Alert } = require('react-native');
@@ -41,7 +45,7 @@ export default function SettingsScreen({ navigation }: any) {
                         text: 'Logout',
                         style: 'destructive',
                         onPress: async () => {
-                            await signOut();
+                            try { await signOut(); } catch (e) { console.error('Logout failed:', e); }
                         },
                     },
                 ]

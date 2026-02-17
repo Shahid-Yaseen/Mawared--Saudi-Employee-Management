@@ -6,6 +6,7 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
+    Platform,
     useWindowDimensions,
 } from 'react-native';
 import { Card, Button, Avatar, Switch, Divider } from 'react-native-paper';
@@ -75,21 +76,32 @@ export default function ProfileScreen({ navigation }: any) {
         setIsArabic(!isArabic);
     };
 
-    const handleLogout = () => {
-        Alert.alert(
-            t('common.logout'),
-            'Are you sure you want to logout?',
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.logout'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        await signOut();
+    const handleLogout = async () => {
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to logout?');
+            if (confirmed) {
+                try {
+                    await signOut();
+                } catch (e) {
+                    console.error('Logout failed:', e);
+                }
+            }
+        } else {
+            Alert.alert(
+                t('common.logout'),
+                'Are you sure you want to logout?',
+                [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                        text: t('common.logout'),
+                        style: 'destructive',
+                        onPress: async () => {
+                            try { await signOut(); } catch (e) { console.error('Logout failed:', e); }
+                        },
                     },
-                },
-            ]
-        );
+                ]
+            );
+        }
     };
 
     const content = (

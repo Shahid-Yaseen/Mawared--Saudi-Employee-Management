@@ -9,10 +9,20 @@ import {
     TouchableOpacity,
     Platform,
 } from 'react-native';
-import { Card, TextInput, Button, Title, Paragraph } from 'react-native-paper';
+import { Card, TextInput, Button, Title, Paragraph, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../store/ThemeContext';
 import { adminApi } from '../../services/adminApi';
+
+// Cross-platform alert helper
+function showAlert(title: string, message: string, onOk?: () => void) {
+    if (Platform.OS === 'web') {
+        window.alert(`${title}\n\n${message}`);
+        onOk?.();
+    } else {
+        Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+    }
+}
 
 export default function AddStoreOwnerScreen({ navigation }: any) {
     const { theme } = useTheme();
@@ -22,23 +32,29 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
     const [storeName, setStoreName] = useState('');
     const [storeNumber, setStoreNumber] = useState('');
     const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
-    const validateEmail = (email: string) => {
+    const validateEmail = (emailVal: string) => {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(email);
+        return re.test(emailVal);
     };
 
     const handleSubmit = async () => {
+        setErrorMsg('');
+
         if (!fullName.trim()) {
-            Alert.alert('Validation Error', 'Full name is required');
+            setErrorMsg('Full name is required');
+            showAlert('Validation Error', 'Full name is required');
             return;
         }
         if (!email.trim() || !validateEmail(email.trim())) {
-            Alert.alert('Validation Error', 'A valid email address is required');
+            setErrorMsg('A valid email address is required');
+            showAlert('Validation Error', 'A valid email address is required');
             return;
         }
         if (!storeName.trim()) {
-            Alert.alert('Validation Error', 'Store name is required');
+            setErrorMsg('Store name is required');
+            showAlert('Validation Error', 'Store name is required');
             return;
         }
 
@@ -58,25 +74,16 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
             const tempPassword = result.tempPassword || result.data?.tempPassword || result.credentials?.password || 'User should check email';
             const emailSent = result.emailSent !== false;
 
-            if (Platform.OS === 'web') {
-                console.log('Success: Navigating back on web');
-                alert(`Store owner has been created successfully.\n\nTemporary Password: ${tempPassword}\n\nEmail notification: ${emailSent ? 'Sent' : 'Not sent'}`);
-                navigation.goBack();
-                return;
-            }
-
-            Alert.alert(
+            showAlert(
                 'Store Owner Created',
                 `Store owner has been created successfully.\n\nTemporary Password: ${tempPassword}\n\nEmail notification: ${emailSent ? 'Sent' : 'Not sent'}`,
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack(),
-                    },
-                ]
+                () => navigation.goBack()
             );
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to create store owner');
+            console.error('Create store owner error:', error);
+            const msg = error.message || 'Failed to create store owner';
+            setErrorMsg(msg);
+            showAlert('Error', msg);
         } finally {
             setLoading(false);
         }
@@ -155,29 +162,34 @@ export default function AddStoreOwnerScreen({ navigation }: any) {
             </Card>
 
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="outlined"
-                    onPress={() => navigation.goBack()}
-                    style={[styles.cancelButton, { borderColor: theme.colors.outline }]}
-                    labelStyle={{ color: theme.colors.primary }}
-                    disabled={loading}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    mode="contained"
-                    onPress={handleSubmit}
-                    style={styles.submitButton}
-                    buttonColor={theme.colors.primary}
-                    textColor="white"
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        'Create Store Owner'
-                    )}
-                </Button>
+                {errorMsg ? (
+                    <View style={styles.errorBanner}>
+                        <Ionicons name="alert-circle" size={18} color="#D32F2F" />
+                        <Text style={styles.errorText}>{errorMsg}</Text>
+                    </View>
+                ) : null}
+                <View style={styles.buttonRow}>
+                    <Button
+                        mode="outlined"
+                        onPress={() => navigation.goBack()}
+                        style={[styles.cancelButton, { borderColor: theme.colors.outline }]}
+                        labelStyle={{ color: theme.colors.primary }}
+                        disabled={loading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        mode="contained"
+                        onPress={handleSubmit}
+                        style={styles.submitButton}
+                        buttonColor={theme.colors.primary}
+                        textColor="white"
+                        disabled={loading}
+                        loading={loading}
+                    >
+                        {loading ? 'Creating...' : 'Create Store Owner'}
+                    </Button>
+                </View>
             </View>
 
             <View style={styles.bottomSpacer} />
@@ -227,9 +239,11 @@ const styles = StyleSheet.create({
         width: '48%',
     },
     buttonContainer: {
-        flexDirection: 'row',
         padding: 10,
         marginTop: 10,
+    },
+    buttonRow: {
+        flexDirection: 'row',
     },
     cancelButton: {
         flex: 1,
@@ -238,6 +252,22 @@ const styles = StyleSheet.create({
     submitButton: {
         flex: 2,
         marginLeft: 8,
+    },
+    errorBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFEBEE',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: '#D32F2F',
+    },
+    errorText: {
+        color: '#D32F2F',
+        marginLeft: 8,
+        flex: 1,
+        fontSize: 14,
     },
     bottomSpacer: {
         height: 40,

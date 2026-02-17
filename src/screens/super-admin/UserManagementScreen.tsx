@@ -9,8 +9,9 @@ import {
     Alert,
     ScrollView,
     ActivityIndicator,
+    Platform,
 } from 'react-native';
-import { Card, Chip, Searchbar, Button, Avatar, Modal, Portal } from 'react-native-paper';
+import { Card, Chip, Searchbar, Button, Avatar, Modal, Portal, Checkbox, FAB } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../store/ThemeContext';
@@ -32,6 +33,29 @@ const ROLE_LABELS: Record<string, string> = {
     super_admin: 'Super Admin',
 };
 
+// Cross-platform alert helpers
+function showAlert(title: string, message: string, onOk?: () => void) {
+    if (Platform.OS === 'web') {
+        window.alert(`${title}\n\n${message}`);
+        onOk?.();
+    } else {
+        Alert.alert(title, message, [{ text: 'OK', onPress: onOk }]);
+    }
+}
+
+function showConfirm(title: string, message: string, onConfirm: () => void, confirmText = 'Confirm') {
+    if (Platform.OS === 'web') {
+        if (window.confirm(`${title}\n\n${message}`)) {
+            onConfirm();
+        }
+    } else {
+        Alert.alert(title, message, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: confirmText, style: 'destructive', onPress: onConfirm },
+        ]);
+    }
+}
+
 export default function UserManagementScreen() {
     const { theme } = useTheme();
     const [users, setUsers] = useState<any[]>([]);
@@ -43,6 +67,10 @@ export default function UserManagementScreen() {
     const [roleModalVisible, setRoleModalVisible] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+    // Selection mode for bulk delete
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         loadUsers();
@@ -79,20 +107,15 @@ export default function UserManagementScreen() {
             setUsers(data || []);
         } catch (error) {
             console.error('Error loading users:', error);
-            Alert.alert('Error', 'Failed to load users. Please try again.');
+            showAlert('Error', 'Failed to load users. Please try again.');
         } finally {
             setRefreshing(false);
             setLoading(false);
         }
     };
 
-    const getRoleColor = (role: string) => {
-        return ROLE_COLORS[role] || theme.colors.textSecondary;
-    };
-
-    const getRoleLabel = (role: string) => {
-        return ROLE_LABELS[role] || role;
-    };
+    const getRoleColor = (role: string) => ROLE_COLORS[role] || theme.colors.textSecondary;
+    const getRoleLabel = (role: string) => ROLE_LABELS[role] || role;
 
     const getInitials = (name: string | null) => {
         if (!name) return 'U';
@@ -103,6 +126,33 @@ export default function UserManagementScreen() {
         return name.substring(0, 2).toUpperCase();
     };
 
+    // --- Selection helpers ---
+    const toggleSelection = (userId: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(userId)) {
+                next.delete(userId);
+            } else {
+                next.add(userId);
+            }
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredUsers.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredUsers.map(u => u.id)));
+        }
+    };
+
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    };
+
+    // --- Actions ---
     const handleChangeRole = (user: any) => {
         setSelectedUser(user);
         setRoleModalVisible(true);
@@ -119,37 +169,31 @@ export default function UserManagementScreen() {
 
         try {
             await adminApi.updateUserRole(selectedUser.id, newRole);
-            Alert.alert('Success', `Role updated to ${getRoleLabel(newRole)}`);
+            showAlert('Success', `Role updated to ${getRoleLabel(newRole)}`);
             await loadUsers();
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to update role');
+            showAlert('Error', error.message || 'Failed to update role');
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleResetPassword = (user: any) => {
-        Alert.alert(
+        showConfirm(
             'Reset Password',
             `Are you sure you want to reset the password for ${user.full_name || user.email}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: async () => {
-                        setActionLoading(user.id + '_password');
-                        try {
-                            await adminApi.resetUserPassword(user.id, user.email, user.full_name || '');
-                            Alert.alert('Success', 'Password reset email has been sent.');
-                        } catch (error: any) {
-                            Alert.alert('Error', error.message || 'Failed to reset password');
-                        } finally {
-                            setActionLoading(null);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                setActionLoading(user.id + '_password');
+                try {
+                    await adminApi.resetUserPassword(user.id, user.email, user.full_name || '');
+                    showAlert('Success', 'Password reset email has been sent.');
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to reset password');
+                } finally {
+                    setActionLoading(null);
+                }
+            },
+            'Reset'
         );
     };
 
@@ -157,31 +201,73 @@ export default function UserManagementScreen() {
         const isBanned = user.banned || user.is_banned;
         const action = isBanned ? 'activate' : 'deactivate';
 
-        Alert.alert(
+        showConfirm(
             `${isBanned ? 'Activate' : 'Deactivate'} User`,
             `Are you sure you want to ${action} ${user.full_name || user.email}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: isBanned ? 'Activate' : 'Deactivate',
-                    style: isBanned ? 'default' : 'destructive',
-                    onPress: async () => {
-                        setActionLoading(user.id + '_status');
-                        try {
-                            await adminApi.toggleUserStatus(user.id, !isBanned);
-                            Alert.alert('Success', `User has been ${isBanned ? 'activated' : 'deactivated'}.`);
-                            await loadUsers();
-                        } catch (error: any) {
-                            Alert.alert('Error', error.message || 'Failed to update user status');
-                        } finally {
-                            setActionLoading(null);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                setActionLoading(user.id + '_status');
+                try {
+                    await adminApi.toggleUserStatus(user.id, !isBanned);
+                    showAlert('Success', `User has been ${isBanned ? 'activated' : 'deactivated'}.`);
+                    await loadUsers();
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to update user status');
+                } finally {
+                    setActionLoading(null);
+                }
+            },
+            isBanned ? 'Activate' : 'Deactivate'
         );
     };
 
+    const handleDeleteUser = (user: any) => {
+        showConfirm(
+            'Delete User',
+            `Are you sure you want to permanently delete "${user.full_name || user.email}"?\n\n${user.role === 'store_owner' ? 'This will also delete their stores and all associated employees.\n\n' : ''}This action cannot be undone.`,
+            async () => {
+                setActionLoading(user.id + '_delete');
+                try {
+                    await adminApi.deleteUser(user.id);
+                    showAlert('Deleted', `User "${user.full_name || user.email}" has been deleted.`);
+                    await loadUsers();
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to delete user');
+                } finally {
+                    setActionLoading(null);
+                }
+            },
+            'Delete'
+        );
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) {
+            showAlert('No Selection', 'Please select at least one user to delete.');
+            return;
+        }
+
+        const count = selectedIds.size;
+        showConfirm(
+            'Bulk Delete Users',
+            `Are you sure you want to permanently delete ${count} user${count > 1 ? 's' : ''}?\n\nStore owners will have their stores and employees deleted too.\n\nThis action cannot be undone.`,
+            async () => {
+                setActionLoading('bulk_delete');
+                try {
+                    const result = await adminApi.bulkDeleteUsers(Array.from(selectedIds));
+                    showAlert('Bulk Delete Complete', result.message || `Deleted ${result.deleted} user(s).`);
+                    exitSelectionMode();
+                    await loadUsers();
+                } catch (error: any) {
+                    showAlert('Error', error.message || 'Failed to delete users');
+                } finally {
+                    setActionLoading(null);
+                }
+            },
+            'Delete All'
+        );
+    };
+
+    // --- Render helpers ---
     const renderRoleFilter = () => (
         <View style={styles.filterOuterContainer}>
             <ScrollView
@@ -223,17 +309,82 @@ export default function UserManagementScreen() {
         </View>
     );
 
+    const renderSelectionBar = () => {
+        if (!selectionMode) return null;
+        const allSelected = selectedIds.size === filteredUsers.length && filteredUsers.length > 0;
+        return (
+            <View style={[styles.selectionBar, { backgroundColor: theme.colors.primary + '15' }]}>
+                <TouchableOpacity onPress={toggleSelectAll} style={styles.selectAllBtn}>
+                    <Checkbox
+                        status={allSelected ? 'checked' : selectedIds.size > 0 ? 'indeterminate' : 'unchecked'}
+                        onPress={toggleSelectAll}
+                        color={theme.colors.primary}
+                    />
+                    <Text style={[styles.selectionText, { color: theme.colors.text }]}>
+                        {selectedIds.size} selected
+                    </Text>
+                </TouchableOpacity>
+                <View style={styles.selectionActions}>
+                    <Button
+                        mode="contained"
+                        compact
+                        onPress={handleBulkDelete}
+                        loading={actionLoading === 'bulk_delete'}
+                        disabled={selectedIds.size === 0 || !!actionLoading}
+                        buttonColor="#EF4444"
+                        textColor="white"
+                        icon="delete"
+                        style={{ borderRadius: 8 }}
+                    >
+                        Delete ({selectedIds.size})
+                    </Button>
+                    <Button
+                        mode="outlined"
+                        compact
+                        onPress={exitSelectionMode}
+                        style={{ borderRadius: 8, marginLeft: 8, borderColor: theme.colors.outline }}
+                        labelStyle={{ color: theme.colors.text }}
+                    >
+                        Cancel
+                    </Button>
+                </View>
+            </View>
+        );
+    };
+
     const renderUser = ({ item }: any) => {
         const isBanned = item.banned || item.is_banned;
         const roleColor = getRoleColor(item.role);
         const isLoadingRole = actionLoading === item.id + '_role';
         const isLoadingPassword = actionLoading === item.id + '_password';
         const isLoadingStatus = actionLoading === item.id + '_status';
+        const isLoadingDelete = actionLoading === item.id + '_delete';
+        const isSelected = selectedIds.has(item.id);
 
         return (
-            <Card style={[styles.card, { backgroundColor: theme.colors.surface }, isBanned && styles.cardBanned]}>
+            <Card
+                style={[
+                    styles.card,
+                    { backgroundColor: theme.colors.surface },
+                    isBanned && styles.cardBanned,
+                    isSelected && { borderColor: theme.colors.primary, borderWidth: 2 },
+                ]}
+                onLongPress={() => {
+                    if (!selectionMode) {
+                        setSelectionMode(true);
+                        setSelectedIds(new Set([item.id]));
+                    }
+                }}
+            >
                 <Card.Content>
                     <View style={styles.cardHeader}>
+                        {selectionMode && (
+                            <Checkbox
+                                status={isSelected ? 'checked' : 'unchecked'}
+                                onPress={() => toggleSelection(item.id)}
+                                color={theme.colors.primary}
+                            />
+                        )}
                         <Avatar.Text
                             size={50}
                             label={getInitials(item.full_name)}
@@ -282,60 +433,76 @@ export default function UserManagementScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.actionButtons}>
-                        <Button
-                            mode="outlined"
-                            compact
-                            onPress={() => handleChangeRole(item)}
-                            loading={isLoadingRole}
-                            disabled={!!actionLoading}
-                            icon={({ size, color }) => (
-                                <MaterialCommunityIcons name="account-convert" size={16} color={color} />
-                            )}
-                            style={[styles.actionButton, { borderColor: theme.colors.outline }]}
-                            labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
-                        >
-                            Role
-                        </Button>
-                        <Button
-                            mode="outlined"
-                            compact
-                            onPress={() => handleResetPassword(item)}
-                            loading={isLoadingPassword}
-                            disabled={!!actionLoading}
-                            icon={({ size, color }) => (
-                                <MaterialCommunityIcons name="lock-reset" size={16} color={color} />
-                            )}
-                            style={[styles.actionButton, { borderColor: theme.colors.outline }]}
-                            labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
-                        >
-                            Reset
-                        </Button>
-                        <Button
-                            mode="outlined"
-                            compact
-                            onPress={() => handleToggleStatus(item)}
-                            loading={isLoadingStatus}
-                            disabled={!!actionLoading}
-                            icon={({ size, color }) => (
-                                <Ionicons
-                                    name={isBanned ? 'checkmark-circle-outline' : 'ban-outline'}
-                                    size={16}
-                                    color={isBanned ? '#10B981' : '#EF4444'}
-                                />
-                            )}
-                            style={[
-                                styles.actionButton,
-                                { borderColor: isBanned ? '#10B981' : '#EF4444' },
-                            ]}
-                            labelStyle={[
-                                styles.actionButtonLabel,
-                                { color: isBanned ? '#10B981' : '#EF4444' },
-                            ]}
-                        >
-                            {isBanned ? 'Activate' : 'Deactivate'}
-                        </Button>
-                    </View>
+                    {!selectionMode && (
+                        <View style={styles.actionButtons}>
+                            <Button
+                                mode="outlined"
+                                compact
+                                onPress={() => handleChangeRole(item)}
+                                loading={isLoadingRole}
+                                disabled={!!actionLoading}
+                                icon={({ size, color }) => (
+                                    <MaterialCommunityIcons name="account-convert" size={16} color={color} />
+                                )}
+                                style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                                labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
+                            >
+                                Role
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                compact
+                                onPress={() => handleResetPassword(item)}
+                                loading={isLoadingPassword}
+                                disabled={!!actionLoading}
+                                icon={({ size, color }) => (
+                                    <MaterialCommunityIcons name="lock-reset" size={16} color={color} />
+                                )}
+                                style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                                labelStyle={[styles.actionButtonLabel, { color: theme.colors.primary }]}
+                            >
+                                Reset
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                compact
+                                onPress={() => handleToggleStatus(item)}
+                                loading={isLoadingStatus}
+                                disabled={!!actionLoading}
+                                icon={({ size, color }) => (
+                                    <Ionicons
+                                        name={isBanned ? 'checkmark-circle-outline' : 'ban-outline'}
+                                        size={16}
+                                        color={isBanned ? '#10B981' : '#EF4444'}
+                                    />
+                                )}
+                                style={[
+                                    styles.actionButton,
+                                    { borderColor: isBanned ? '#10B981' : '#EF4444' },
+                                ]}
+                                labelStyle={[
+                                    styles.actionButtonLabel,
+                                    { color: isBanned ? '#10B981' : '#EF4444' },
+                                ]}
+                            >
+                                {isBanned ? 'Activate' : 'Deactivate'}
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                compact
+                                onPress={() => handleDeleteUser(item)}
+                                loading={isLoadingDelete}
+                                disabled={!!actionLoading}
+                                icon={({ size, color }) => (
+                                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                                )}
+                                style={[styles.actionButton, { borderColor: '#EF4444' }]}
+                                labelStyle={[styles.actionButtonLabel, { color: '#EF4444' }]}
+                            >
+                                Delete
+                            </Button>
+                        </View>
+                    )}
                 </Card.Content>
             </Card>
         );
@@ -413,10 +580,22 @@ export default function UserManagementScreen() {
             />
 
             {renderRoleFilter()}
+            {renderSelectionBar()}
 
-            <Text style={[styles.resultsCount, { color: theme.colors.textSecondary }]}>
-                {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
-            </Text>
+            <View style={styles.resultsRow}>
+                <Text style={[styles.resultsCount, { color: theme.colors.textSecondary }]}>
+                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+                </Text>
+                {!selectionMode && filteredUsers.length > 0 && (
+                    <TouchableOpacity
+                        onPress={() => setSelectionMode(true)}
+                        style={[styles.selectModeBtn, { borderColor: theme.colors.outline }]}
+                    >
+                        <Ionicons name="checkbox-outline" size={16} color={theme.colors.primary} />
+                        <Text style={[styles.selectModeBtnText, { color: theme.colors.primary }]}>Select</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
 
             <FlatList
                 data={filteredUsers}
@@ -487,11 +666,51 @@ const styles = StyleSheet.create({
     filterChipText: {
         fontSize: 13,
     },
-    resultsCount: {
+    resultsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 4,
+    },
+    resultsCount: {
         fontSize: 12,
         fontWeight: '600',
+    },
+    selectModeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        gap: 4,
+    },
+    selectModeBtnText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    selectionBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        marginHorizontal: 12,
+        borderRadius: 10,
+        marginBottom: 4,
+    },
+    selectAllBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    selectionText: {
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    selectionActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     listContent: {
         padding: 12,
@@ -559,10 +778,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         marginTop: 12,
         gap: 8,
+        flexWrap: 'wrap',
     },
     actionButton: {
-        flex: 1,
         borderRadius: 8,
+        minWidth: 80,
     },
     actionButtonLabel: {
         fontSize: 11,

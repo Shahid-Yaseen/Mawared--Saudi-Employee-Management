@@ -18,7 +18,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ForceChangePasswordScreen from '../screens/auth/ForceChangePasswordScreen';
-import { supabase } from '../services/supabase';
+import { supabase, signOut } from '../services/supabase';
 
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
 import AttendanceScreen from '../screens/employee/AttendanceScreen';
@@ -483,11 +483,13 @@ function SuperAdminTabs() {
                         <TouchableOpacity
                             onPress={async () => {
                                 if (Platform.OS === 'web') {
-                                    if (window.confirm('Are you sure you want to logout?')) await supabase.auth.signOut();
+                                    if (window.confirm('Are you sure you want to logout?')) {
+                                        try { await signOut(); } catch (e) { console.error('Logout failed:', e); }
+                                    }
                                 } else {
                                     Alert.alert('Logout', 'Are you sure you want to logout?', [
                                         { text: 'Cancel', style: 'cancel' },
-                                        { text: 'Logout', style: 'destructive', onPress: () => supabase.auth.signOut() }
+                                        { text: 'Logout', style: 'destructive', onPress: async () => { try { await signOut(); } catch (e) { console.error('Logout failed:', e); } } }
                                     ]);
                                 }
                             }}
